@@ -13,6 +13,7 @@ import (
 	samasemodels "samase/models"
 	userrepo "samase/user/repository"
 	usersqlrepo "samase/user/repository/sql"
+	"strings"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
@@ -112,8 +113,9 @@ func Login(
 			return ectx.JSON(http.StatusInternalServerError, samasemodels.RESTResponse{Message: "there's a problem"})
 		}
 
-		ectx.Response().Header().Set("X-AUTH-TOKEN", tokenStr)
-		return ectx.JSON(http.StatusOK, "Login success")
+		return ectx.JSON(http.StatusOK, struct {
+			Token string `json:"token"`
+		}{Token: tokenStr})
 	}
 }
 
@@ -198,14 +200,12 @@ func Logout(
 	logout authenticationservice.LogoutFunc,
 ) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
-		var post struct {
-			AccessToken string `json:"access_token"`
+		authorizationBearer := ectx.Request().Header.Get("Authorization")
+		if !strings.Contains(authorizationBearer, "Bearer ") {
+			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
-		err := ectx.Bind(&post)
-		if err != nil {
-			return ectx.JSON(http.StatusBadRequest, samasemodels.RESTResponse{Message: err})
-		}
-		err = logout(post.AccessToken)
+		token := strings.Replace(authorizationBearer, "Bearer ", "", 1)
+		err := logout(token)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, samasemodels.RESTResponse{Message: err})
 		}

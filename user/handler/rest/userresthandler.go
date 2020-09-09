@@ -8,6 +8,7 @@ import (
 	"samase/user"
 	userrepo "samase/user/repository"
 	usersqlrepo "samase/user/repository/sql"
+	userservice "samase/user/service"
 	"samase/useremail"
 	useremailrepo "samase/useremail/repository"
 	useremailsqlrepo "samase/useremail/repository/sql"
@@ -26,6 +27,12 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	createUserPassword := userpasswordsqlrepo.CreateUserPassword(conn)
 
 	ee.POST("/users", CreateUser(createUser, createUserEmail, createUserPassword))
+
+	ussf := usersqlrepo.NewUserSQLFetcher(conn)
+	doesNameExist := userservice.DoesNameExist(&ussf)
+
+	ee.GET("/users/name/exists/:name", DoesNameExist(doesNameExist))
+
 }
 
 func CreateUser(
@@ -76,8 +83,9 @@ func CreateUser(
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
 		usem := useremail.UserEmail{
-			UserID: us.ID,
-			Value:  post.Email,
+			UserID:   us.ID,
+			Value:    post.Email,
+			Verified: post.EmailVerified,
 		}
 		usem, err = createUserEmail(ctx, usem)
 		if err != nil {
@@ -91,4 +99,25 @@ func CreateUser(
 func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
+}
+
+func DoesNameExist(
+	doesNameExist userservice.DoesNameExistFunc,
+) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		name := ectx.Param("name")
+		if name == "" {
+			return ectx.JSON(http.StatusBadRequest, samasemodels.RESTResponse{Message: "Error : name cannot be empty"})
+		}
+		exist, err := doesNameExist(ctx, name)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		var resp struct {
+			Exist bool `json:"exist"`
+		}
+		resp.Exist = exist
+		return ectx.JSON(http.StatusOK, resp)
+	}
 }

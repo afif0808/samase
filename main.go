@@ -8,6 +8,8 @@ import (
 	"os"
 	authenticationresthandler "samase/authentication/handler/rest"
 	userresthandler "samase/user/handler/rest"
+	useremailresthandler "samase/useremail/handler/rest"
+	uservoucherjunctionresthandler "samase/uservoucherjunction/handler/rest"
 
 	"github.com/gomodule/redigo/redis"
 
@@ -66,16 +68,14 @@ func main() {
 	// 	},
 	// 	Endpoint: google.Endpoint,
 	// }
-
-	ee.GET("/test", func(ectx echo.Context) error {
-		return ectx.HTML(http.StatusOK, "<h1>Hello Wolrd!</h1>")
-	})
-
 	rp := redisPool()
 	rc, _ := rp.Dial()
+
 	userresthandler.InjectUserRESTHandler(conn, ee)
 	authenticationresthandler.InjectAuthenticationRESTHandler(conn, ee, rc)
-
+	uservoucherjunctionresthandler.InjectUserVoucherJunctionRESTHandler(conn, ee)
+	useremailresthandler.InjectUserEmailRESTHandler(conn, ee)
+	ee.Static("/assets", "/media/afif0808/data/go/src/samase/assets")
 	ee.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},

@@ -8,12 +8,16 @@ import (
 	"samase/user"
 	"samase/useremail"
 	"samase/userpassword"
+	"samase/userpoint"
+	"samase/voucher"
 )
 
 type receiver struct {
 	User         *user.User
 	UserEmail    *useremail.UserEmail
 	UserPassword *userpassword.UserPassword
+	UserPoint    *userpoint.UserPoint
+	Vouchers     *[]voucher.Voucher
 }
 
 type UserSQLFetcher struct {
@@ -105,6 +109,20 @@ func (ussf *UserSQLFetcher) WithPassword() {
 		ussf.scanDest,
 		&ussf.Receiver.UserPassword.Hash,
 	)
+}
+
+func (ussf *UserSQLFetcher) WithPoint() {
+	ussf.Receiver.UserPoint = &userpoint.UserPoint{}
+	ussf.fields += "user_point.value,"
+	ussf.joins += "INNER JOIN user_point ON user.id = user_point.user_id"
+	ussf.scanDest = append(
+		ussf.scanDest,
+		&ussf.Receiver.UserPoint.Value,
+	)
+}
+
+func (ussf *UserSQLFetcher) WithVouchers() {
+
 }
 
 func (ussf *UserSQLFetcher) AddJoins(joins string) {

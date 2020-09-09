@@ -3,14 +3,17 @@ package usersqlrepo
 import (
 	"context"
 	"database/sql"
+	"fifentory/options"
 	"log"
 	"samase/user"
 	userrepo "samase/user/repository"
 )
 
 const (
-	userTable       = "user"
-	createUserQuery = "INSERT " + userTable + " SET name = ? , fullname = ?"
+	userTable        = "user"
+	createUserQuery  = "INSERT " + userTable + " SET name = ? , fullname = ?"
+	updateUsersQuery = "UPDATE " + userTable + " SET name = ? , fullname = ?"
+	deleteUsersQuery = "DELETE FROM " + userTable
 )
 
 func CreateUser(conn *sql.DB) userrepo.CreateUserFunc {
@@ -27,5 +30,25 @@ func CreateUser(conn *sql.DB) userrepo.CreateUserFunc {
 		}
 		us.ID = id
 		return us, nil
+	}
+}
+
+func UpdateUsers(conn *sql.DB) userrepo.UpdateUsersFunc {
+	return func(ctx context.Context, us user.User, fts []options.Filter) error {
+		_, err := conn.ExecContext(ctx, updateUsersQuery, us.Name, us.Fullname)
+		if err != nil {
+			log.Println(err)
+		}
+		return err
+	}
+}
+
+func DeleteUsers(conn *sql.DB) userrepo.DeleteUsersFunc {
+	return func(ctx context.Context, fts []options.Filter) error {
+		_, err := conn.ExecContext(ctx, deleteUsersQuery)
+		if err != nil {
+			log.Println(err)
+		}
+		return nil
 	}
 }

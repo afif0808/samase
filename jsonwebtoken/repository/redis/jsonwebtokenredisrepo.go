@@ -22,7 +22,7 @@ func IsJWTBlackListed(conn redis.Conn) jsonwebtokenrepo.IsJWTBlackListedFunc {
 //BlackListJWT black list jwt
 func BlackListJWT(conn redis.Conn) jsonwebtokenrepo.BlackListJWTFunc {
 	return func(token string) error {
-		_, err := conn.Do("SET", "BlackListed"+token, struct{}{})
+		_, err := conn.Do("SET", "BlackListed"+token, "LoggedOut")
 		if err != nil {
 			log.Println(err)
 		}

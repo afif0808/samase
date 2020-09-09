@@ -11,8 +11,8 @@ import (
 
 const (
 	userEmailTable       = "user_email"
-	userEmailFields      = "user_email.user_id,user_email.value,user_mail.verified"
-	createUserEmailQuery = "INSERT " + userEmailTable + " SET user_id = ? , email = ? , verified = ?"
+	userEmailFields      = "user_email.user_id,user_email.value,user_email.verified"
+	createUserEmailQuery = "INSERT " + userEmailTable + " SET user_id = ? , value = ? , verified = ?"
 	getUserEmailsQuery   = "SELECT " + userEmailFields + " FROM " + userEmailTable
 )
 
@@ -30,7 +30,7 @@ func CreateUserEmail(conn *sql.DB) useremailrepo.CreateUserEmailFunc {
 func GetUserEmails(conn *sql.DB) useremailrepo.GetUserEmailsFunc {
 	return func(ctx context.Context, opts *options.Options) ([]useremail.UserEmail, error) {
 		optionsQuery, optionsArgs := options.ParseOptionsToSQLQuery(opts)
-		rows, err := conn.QueryContext(ctx, getUserEmailsQuery+" "+optionsQuery, optionsArgs)
+		rows, err := conn.QueryContext(ctx, getUserEmailsQuery+" "+optionsQuery, optionsArgs...)
 		if err != nil {
 			log.Println(err)
 			return nil, err
