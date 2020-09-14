@@ -8,7 +8,6 @@ func Logout(
 	blackListJWT jsonwebtokenrepo.BlackListJWTFunc,
 ) LogoutFunc {
 	return func(token string) error {
-		
 		return blackListJWT(token)
 	}
 }

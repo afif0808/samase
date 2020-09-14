@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fifentory/options"
 	"net/http"
+	authenticationmiddleware "samase/authentication/middleware"
 	"samase/jsonwebtoken"
 	jsonwebtokenredisrepo "samase/jsonwebtoken/repository/redis"
 	samasemodels "samase/models"
@@ -47,10 +48,17 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 		),
 	)
 	ee.POST("/login/google", GoogleLogin(&ussf, createJWT, secretKey, jwtsm, tokenDuration))
-
+	ee.GET("/authenticate/android", AndroidAuthenticate(authenticationmiddleware.InjectAuthenticate()))
 	blackListJWT := jsonwebtokenredisrepo.BlackListJWT(redisConn)
 	logout := authenticationservice.Logout(blackListJWT)
 	ee.POST("/logout", Logout(logout))
+}
+
+func AndroidAuthenticate(authenticateMiddleware echo.MiddlewareFunc) echo.HandlerFunc {
+	return authenticateMiddleware(func(ectx echo.Context) error {
+		// ctx := ectx.Request().Context()
+		return ectx.JSON(http.StatusOK, ectx.Get("user"))
+	})
 }
 
 func Login(

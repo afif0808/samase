@@ -48,6 +48,7 @@ func Authenticate(
 		}
 	}
 }
+
 func redisPool() *redis.Pool {
 	return &redis.Pool{
 		MaxIdle:   50,
