@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"fifentory/options"
 	"net/http"
 	authenticationmiddleware "samase/authentication/middleware"
@@ -17,13 +16,14 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/api/oauth2/v2"
+
 	"github.com/gomodule/redigo/redis"
 
 	authenticationservice "samase/authentication/service"
 	jsonwebtokenservice "samase/jsonwebtoken/service"
 
 	"github.com/dgrijalva/jwt-go"
-	"golang.org/x/oauth2"
 
 	"github.com/labstack/echo"
 	"golang.org/x/crypto/bcrypt"
@@ -35,7 +35,7 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 	createJWT := jsonwebtokenservice.CreateJWT()
 	secretKey := []byte("itssignaturekey")
 	jwtsm := jwt.SigningMethodHS256
-	tokenDuration := time.Minute * 30
+	tokenDuration := time.Hour * 30
 
 	ee.POST(
 		"/login",
@@ -82,10 +82,12 @@ func Login(
 			Name     string `json:"name"`
 			Password string `json:"password"`
 		}
+
 		err := ectx.Bind(&post)
 		if err != nil {
 			return ectx.JSON(http.StatusUnauthorized, samasemodels.RESTResponse{Message: "login failed"})
 		}
+
 		usfe.WithPassword()
 		uss, err := usfe.GetUsers(ctx, &options.Options{
 			Filters: []options.Filter{
@@ -141,6 +143,22 @@ func randToken() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
+func verifyIdToken(ctx context.Context, idToken string) (*oauth2.Tokeninfo, error) {
+	oauth2Service, err := oauth2.NewService(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tokenInfoCall := oauth2Service.Tokeninfo()
+	tokenInfoCall.IdToken(idToken)
+
+	tokenInfo, err := tokenInfoCall.Do()
+
+	if err != nil {
+		return nil, err
+	}
+	return tokenInfo, nil
+}
+
 func GoogleLogin(
 	usfe userrepo.UserFetcher,
 	createJWT jsonwebtoken.CreateJWTFunc,
@@ -151,35 +169,35 @@ func GoogleLogin(
 	return func(ectx echo.Context) error {
 		ctx := ectx.Request().Context()
 		var post struct {
-			AccessToken string `json:"access_token"`
+			IDToken string `json:"id_token"`
 		}
 		err := ectx.Bind(&post)
-
 		if err != nil {
 			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
-		resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + post.AccessToken)
-		if err != nil {
-			return ectx.JSON(http.StatusInternalServerError, nil)
-		}
+
 		var googleUser struct {
 			Email      string `json:"email"`
 			Registered bool   `json:"registered"`
 			Token      string `json:"token,omitempty"`
 		}
-		err = json.NewDecoder(resp.Body).Decode(&googleUser)
+
+		tokenInfo, err := verifyIdToken(ctx, post.IDToken)
 		if err != nil {
-			return ectx.JSON(http.StatusInternalServerError, nil)
+			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
+
+		googleUser.Email = tokenInfo.Email
 
 		usfe.WithEmail()
 		uss, err := usfe.GetUsers(ctx, &options.Options{
 			Filters: []options.Filter{options.Filter{
 				By:       "user_email.value",
 				Operator: "=",
-				Value:    googleUser.Email,
+				Value:    tokenInfo.Email,
 			}},
 		})
+
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
@@ -219,20 +237,4 @@ func Logout(
 		}
 		return ectx.JSON(http.StatusOK, nil)
 	}
-}
-
-type googleAuthStuffs struct {
-	dataURL string
-	code    string
-}
-
-func getGoogleData(ctx context.Context, conf *oauth2.Config, gass googleAuthStuffs) (*http.Response, error) {
-	token, err := conf.Exchange(oauth2.NoContext, gass.code)
-	if err != nil {
-		return nil, err
-	}
-
-	cl := conf.Client(ctx, token)
-	res, err := cl.Get(gass.dataURL)
-	return res, err
 }
