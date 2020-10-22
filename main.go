@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"os"
 	authenticationresthandler "samase/authentication/handler/rest"
+	notificationresthandler "samase/notification/handler/rest"
 	userresthandler "samase/user/handler/rest"
 	useremailresthandler "samase/useremail/handler/rest"
+	userpasswordresthandler "samase/userpassword/handler/rest"
 	uservoucherjunctionresthandler "samase/uservoucherjunction/handler/rest"
 
 	"github.com/gomodule/redigo/redis"
@@ -33,7 +35,16 @@ func redisPool() *redis.Pool {
 		},
 	}
 }
+
 func main() {
+	// mc := samasemail.MailConfig{
+	// 	Email:     "afifsamase@gmail.com",
+	// 	Password:  "samaseafif87",
+	// 	SMTP_HOST: "smtp.gmail.com",
+	// 	SMTP_PORT: 587,
+	// 	Mailer:    gomail.NewMessage(),
+	// }
+	// log.Println(samasemailservice.SendEmail(mc)(context.Background(), []string{"afif.panai@gmail.com"}, "Hello WOrld", "<h1>Comment alez vous?</h1>"))
 	// config := map[string]interface{}{}
 	// configFile, err := os.Open("../src/fifentory/config.json")
 	// if err != nil {
@@ -72,9 +83,11 @@ func main() {
 	rc, _ := rp.Dial()
 
 	userresthandler.InjectUserRESTHandler(conn, ee)
+	notificationresthandler.InjectNotificationRESTHandler(conn, ee)
 	authenticationresthandler.InjectAuthenticationRESTHandler(conn, ee, rc)
 	uservoucherjunctionresthandler.InjectUserVoucherJunctionRESTHandler(conn, ee)
 	useremailresthandler.InjectUserEmailRESTHandler(conn, ee)
+	userpasswordresthandler.InjectUserPasswordRESTHandler(conn, ee)
 	ee.Static("/assets", "/media/afif0808/data/go/src/samase/assets")
 	ee.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},

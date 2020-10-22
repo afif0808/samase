@@ -35,7 +35,10 @@ func CreateUser(conn *sql.DB) userrepo.CreateUserFunc {
 
 func UpdateUsers(conn *sql.DB) userrepo.UpdateUsersFunc {
 	return func(ctx context.Context, us user.User, fts []options.Filter) error {
-		_, err := conn.ExecContext(ctx, updateUsersQuery, us.Name, us.Fullname)
+		filtersQuery, filtersOptions := options.ParseFiltersToSQLQuery(fts)
+		filtersOptions = append([]interface{}{us.Name, us.Fullname}, filtersOptions...)
+		query := updateUsersQuery + " " + filtersQuery
+		_, err := conn.ExecContext(ctx, query, filtersOptions...)
 		if err != nil {
 			log.Println(err)
 		}

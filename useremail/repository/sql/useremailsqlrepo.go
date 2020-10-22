@@ -14,6 +14,7 @@ const (
 	userEmailFields      = "user_email.user_id,user_email.value,user_email.verified"
 	createUserEmailQuery = "INSERT " + userEmailTable + " SET user_id = ? , value = ? , verified = ?"
 	getUserEmailsQuery   = "SELECT " + userEmailFields + " FROM " + userEmailTable
+	updateUserEmailQuery = "UPDATE " + userEmailTable + " SET user_email.value = ? , user_email.verified = ?"
 )
 
 func CreateUserEmail(conn *sql.DB) useremailrepo.CreateUserEmailFunc {
@@ -47,5 +48,18 @@ func GetUserEmails(conn *sql.DB) useremailrepo.GetUserEmailsFunc {
 		}
 		defer rows.Close()
 		return usems, nil
+	}
+}
+
+func UpdateUserEmails(conn *sql.DB) useremailrepo.UpdateUserEmailsFunc {
+	return func(ctx context.Context, usem useremail.UserEmail, fts []options.Filter) error {
+		filtersQuery, filtersOptions := options.ParseFiltersToSQLQuery(fts)
+		filtersOptions = append([]interface{}{usem.Value, usem.Verified}, filtersOptions...)
+		query := updateUserEmailQuery + " " + filtersQuery
+		_, err := conn.ExecContext(ctx, query, filtersOptions...)
+		if err != nil {
+			log.Println(err)
+		}
+		return err
 	}
 }

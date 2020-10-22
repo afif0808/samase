@@ -2,6 +2,6 @@ package useremail
 
 type UserEmail struct {
 	Value    string `json:"value"`
-	UserID   int64  `json:"user_id"`
+	UserID   int64  `json:"-"`
 	Verified bool   `json:"verified"`
 }

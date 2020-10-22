@@ -16,3 +16,8 @@ type User struct {
 	Point    *userpoint.UserPoint       `json:"point,omitempty"`
 	Vouchers *voucher.Voucher           `json:"vouchers,omitempty"`
 }
+
+type GoogleUser struct {
+	Name  string
+	Email string
+}

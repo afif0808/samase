@@ -7,4 +7,5 @@ type Notification struct {
 	Name    string    `json:"name"`
 	Message string    `json:"message"`
 	Date    time.Time `json:"date"`
+	UserID  int64     `json:"-"`
 }

@@ -5,18 +5,25 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"fifentory/options"
+	"fmt"
+	"log"
 	"net/http"
 	authenticationmiddleware "samase/authentication/middleware"
 	"samase/jsonwebtoken"
+	jsonwebtokenrepo "samase/jsonwebtoken/repository"
 	jsonwebtokenredisrepo "samase/jsonwebtoken/repository/redis"
 	samasemodels "samase/models"
-	userrepo "samase/user/repository"
+	samasemailservice "samase/samasemail/service"
+	"samase/user"
 	usersqlrepo "samase/user/repository/sql"
+	userservice "samase/user/service"
+	"samase/useremail"
+	useremailsqlrepo "samase/useremail/repository/sql"
+	userpasswordsqlrepo "samase/userpassword/repository/sql"
 	"strings"
 	"time"
 
-	"google.golang.org/api/oauth2/v2"
+	"gopkg.in/gomail.v2"
 
 	"github.com/gomodule/redigo/redis"
 
@@ -31,27 +38,43 @@ import (
 
 func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redis.Conn) {
 	ussf := usersqlrepo.NewUserSQLFetcher(conn)
-
-	createJWT := jsonwebtokenservice.CreateJWT()
 	secretKey := []byte("itssignaturekey")
 	jwtsm := jwt.SigningMethodHS256
+	createJWT := jsonwebtokenservice.CreateJWT(secretKey, jwtsm)
+	parseJWT := jsonwebtokenservice.ParseJWT(secretKey, jwtsm)
 	tokenDuration := time.Hour * 30
-
+	login := authenticationservice.Login(&ussf)
 	ee.POST(
 		"/login",
 		Login(
-			&ussf,
+			login,
 			createJWT,
-			secretKey,
-			jwtsm,
 			tokenDuration,
 		),
 	)
-	ee.POST("/login/google", GoogleLogin(&ussf, createJWT, secretKey, jwtsm, tokenDuration))
+	audience := "744967159273-rhjtp67vu4075un8hftrp5silgbh2n6f.apps.googleusercontent.com"
+	credentialFile := "/media/afif0808/data/AnotherDownloads/quickstart-1551068193473-9dbbc6225250.json"
+	verifyIDToken := authenticationservice.GoogleVerifyIDToken(audience, credentialFile)
+
+	createUser := usersqlrepo.CreateUser(conn)
+	createUserEmail := useremailsqlrepo.CreateUserEmail(conn)
+	createUserPassword := userpasswordsqlrepo.CreateUserPassword(conn)
+
+	mailer := gomail.NewMessage()
+	mailer.SetHeader("From", mailer.FormatAddress("afifsamase@gmail.com", "SamaseApp"))
+	dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "samaseafif87")
+	sendEmail := samasemailservice.SendEmail(dialer, mailer)
+	ee.POST("/login/google", GoogleLogin(userservice.CreateUser(createUser, createUserEmail, createUserPassword), userservice.GetUserByEmail(&ussf), verifyIDToken, createJWT, tokenDuration, sendEmail))
 	ee.GET("/authenticate/android", AndroidAuthenticate(authenticationmiddleware.InjectAuthenticate()))
 	blackListJWT := jsonwebtokenredisrepo.BlackListJWT(redisConn)
 	logout := authenticationservice.Logout(blackListJWT)
-	ee.POST("/logout", Logout(logout))
+	ee.GET("/logout", Logout(logout))
+
+	getUserByID := userservice.GetUserByID(&ussf)
+
+	refreshToken := authenticationservice.RefreshToken(createJWT, parseJWT, getUserByID)
+
+	ee.GET("/token/refresh", RefreshToken(refreshToken, time.Hour*20000, blackListJWT))
 }
 
 func AndroidAuthenticate(authenticateMiddleware echo.MiddlewareFunc) echo.HandlerFunc {
@@ -62,10 +85,8 @@ func AndroidAuthenticate(authenticateMiddleware echo.MiddlewareFunc) echo.Handle
 }
 
 func Login(
-	usfe userrepo.UserFetcher,
+	login authenticationservice.LoginFunc,
 	createJWT jsonwebtoken.CreateJWTFunc,
-	secretKey interface{},
-	jwtsm jwt.SigningMethod,
 	tokenDuration time.Duration,
 ) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
@@ -79,50 +100,29 @@ func Login(
 			defer cancel()
 		}
 		var post struct {
-			Name     string `json:"name"`
+			Email    string `json:"email"`
 			Password string `json:"password"`
 		}
-
 		err := ectx.Bind(&post)
+		log.Println("Aa", post)
 		if err != nil {
 			return ectx.JSON(http.StatusUnauthorized, samasemodels.RESTResponse{Message: "login failed"})
 		}
-
-		usfe.WithPassword()
-		uss, err := usfe.GetUsers(ctx, &options.Options{
-			Filters: []options.Filter{
-				options.Filter{
-					By:       "user.name",
-					Operator: "=",
-					Value:    post.Name,
-				},
-			},
-		})
-		if err != nil {
-			return ectx.JSON(http.StatusInternalServerError, samasemodels.RESTResponse{Message: "there's a problem"})
-		}
-		if len(uss) <= 0 {
-			return ectx.JSON(http.StatusUnauthorized, samasemodels.RESTResponse{Message: "login failed ,username or password is incorrect "})
-		}
-
-		us := uss[0]
-		if !checkPasswordHash(us.Password.Hash, post.Password) {
-			return ectx.JSON(http.StatusUnauthorized, samasemodels.RESTResponse{Message: "login failed ,username or password is incorrect "})
-		}
-
-		jwtscl := jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(tokenDuration).Unix(),
+		us, err := login(ctx, post.Email, post.Password)
+		if err != nil || us == nil {
+			log.Println("Eeh", us, err)
+			return ectx.JSON(http.StatusUnauthorized, samasemodels.RESTResponse{Message: "login failed"})
 		}
 		sajwtcl := jsonwebtoken.SamaseJWTClaims{
-			StandardClaims: jwtscl,
-			User:           uss[0],
+			StandardClaims: jwt.StandardClaims{
+				ExpiresAt: time.Now().Add(tokenDuration).Unix(),
+			},
+			User: *us,
 		}
-
-		tokenStr, err := createJWT(sajwtcl, secretKey, jwtsm)
+		tokenStr, err := createJWT(sajwtcl)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, samasemodels.RESTResponse{Message: "there's a problem"})
 		}
-
 		return ectx.JSON(http.StatusOK, struct {
 			Token string `json:"token"`
 		}{Token: tokenStr})
@@ -143,82 +143,96 @@ func randToken() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func verifyIdToken(ctx context.Context, idToken string) (*oauth2.Tokeninfo, error) {
-	oauth2Service, err := oauth2.NewService(ctx)
-	if err != nil {
-		return nil, err
-	}
-	tokenInfoCall := oauth2Service.Tokeninfo()
-	tokenInfoCall.IdToken(idToken)
+func getTokenSource() {
+	// config := oauth2.Config{
+	// 	ClientID:     "744967159273-rhjtp67vu4075un8hftrp5silgbh2n6f.apps.googleusercontent.com",
+	// 	ClientSecret: "Q3LFW6jWMrCyaSB8r7h20fII",
+	// 	Endpoint:     google.Endpoint,
+	// }
+	// config.
+}
 
-	tokenInfo, err := tokenInfoCall.Do()
+func verifyIdToken(ctx context.Context, idToken string) {
+	// oauth2Service, err := oauth2.NewService(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// tokenInfoCall := oauth2Service.Tokeninfo()
+	// tokenInfoCall.IdToken(idToken)
 
-	if err != nil {
-		return nil, err
-	}
-	return tokenInfo, nil
+	// tokenInfo, err := tokenInfoCall.Do()
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+	// 	return nil, err
+	// log.Println(oauth2Service.Userinfo)
+
+	// return tokenInfo, nil
 }
 
 func GoogleLogin(
-	usfe userrepo.UserFetcher,
+	createUser userservice.CreateUserFunc,
+	getUserByEmail userservice.GetUserByEmailFunc,
+	verifyIDToken authenticationservice.GoogleVerifyIDTokenFunc,
 	createJWT jsonwebtoken.CreateJWTFunc,
-	secretKey interface{},
-	jwtsm jwt.SigningMethod,
 	tokenDuration time.Duration,
+	sendEmail samasemailservice.SendEmailFunc,
 ) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
 		ctx := ectx.Request().Context()
 		var post struct {
-			IDToken string `json:"id_token"`
+			IDToken     string `json:"id_token"`
+			AccessToken string `json:"access_token"`
 		}
 		err := ectx.Bind(&post)
 		if err != nil {
 			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
-
-		var googleUser struct {
-			Email      string `json:"email"`
-			Registered bool   `json:"registered"`
-			Token      string `json:"token,omitempty"`
-		}
-
-		tokenInfo, err := verifyIdToken(ctx, post.IDToken)
+		payload, err := verifyIDToken(ctx, post.IDToken)
 		if err != nil {
 			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
+		email := fmt.Sprint(payload.Claims["email"])
 
-		googleUser.Email = tokenInfo.Email
-
-		usfe.WithEmail()
-		uss, err := usfe.GetUsers(ctx, &options.Options{
-			Filters: []options.Filter{options.Filter{
-				By:       "user_email.value",
-				Operator: "=",
-				Value:    tokenInfo.Email,
-			}},
-		})
-
+		us, err := getUserByEmail(ctx, email)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
 
-		if len(uss) > 0 {
-			googleUser.Registered = true
-			jwtcl := jsonwebtoken.SamaseJWTClaims{
-				StandardClaims: jwt.StandardClaims{
-					ExpiresAt: time.Now().Add(tokenDuration).Unix(),
+		if us == nil {
+			fullname := fmt.Sprint(payload.Claims["name"])
+			name := strings.ToLower(strings.ReplaceAll(fullname, " ", ""))
+			log.Println(payload.Claims)
+			us = &user.User{
+				Name:     name,
+				Fullname: fullname,
+				Email: &useremail.UserEmail{
+					Value:    email,
+					Verified: true,
 				},
-				User: uss[0],
+			}
+			*us, err = createUser(ctx, *us)
+			if err != nil {
+				return ectx.JSON(http.StatusInternalServerError, nil)
 			}
 
-			tokenStr, err := createJWT(jwtcl, secretKey, jwtsm)
-			googleUser.Token = tokenStr
+			err = sendEmail(ctx, []string{email}, "Ahlan wa sahlan.", "<h1>Ahlan wa sahlan</h1>")
 			if err != nil {
 				return ectx.JSON(http.StatusInternalServerError, nil)
 			}
 		}
 
-		return ectx.JSON(http.StatusOK, googleUser)
+		sajwtcl := jsonwebtoken.SamaseJWTClaims{
+			StandardClaims: jwt.StandardClaims{
+				ExpiresAt: time.Now().Add(tokenDuration).Unix(),
+			},
+			User: *us,
+		}
+		tokenStr, err := createJWT(sajwtcl)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, tokenStr)
 	}
 }
 
@@ -236,5 +250,35 @@ func Logout(
 			return ectx.JSON(http.StatusInternalServerError, samasemodels.RESTResponse{Message: err})
 		}
 		return ectx.JSON(http.StatusOK, nil)
+	}
+}
+
+func RefreshToken(
+	refreshToken authenticationservice.RefreshTokenFunc,
+	tokenDuration time.Duration,
+	blackListJWT jsonwebtokenrepo.BlackListJWTFunc,
+) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		authorizationBearer := ectx.Request().Header.Get("Authorization")
+		if !strings.Contains(authorizationBearer, "Bearer ") {
+			return ectx.JSON(http.StatusUnauthorized, nil)
+		}
+		token := strings.Replace(authorizationBearer, "Bearer ", "", 1)
+
+		newToken, err := refreshToken(ctx, token, tokenDuration)
+		if err != nil {
+			log.Println(err)
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+
+		err = blackListJWT(token)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+
+		return ectx.JSON(http.StatusOK, struct {
+			Token string `json:"token"`
+		}{Token: newToken})
 	}
 }

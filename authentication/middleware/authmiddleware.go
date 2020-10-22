@@ -19,7 +19,6 @@ import (
 func Authenticate(
 	parseJWT jsonwebtoken.ParseJWTFunc,
 	isLoggedOut authenticationservice.IsLoggedOutFunc,
-	jwtconf jsonwebtoken.JWTConfig,
 ) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(ectx echo.Context) error {
@@ -28,7 +27,7 @@ func Authenticate(
 				return ectx.JSON(http.StatusUnauthorized, nil)
 			}
 			token := strings.Replace(authorizationBearer, "Bearer ", "", 1)
-			cl, err := parseJWT(token, jwtconf.SecretKey, jwtconf.SigningMethod)
+			cl, err := parseJWT(token)
 			if err != nil {
 				log.Println(err)
 				return ectx.JSON(http.StatusUnauthorized, nil)
@@ -68,12 +67,13 @@ func InjectAuthenticate() echo.MiddlewareFunc {
 	rp := redisPool()
 	rc, _ := rp.Dial()
 
-	parseJWT := jsonwebtokenservice.ParseJWT()
 	isJWTBlackListed := jsonwebtokenredisrepo.IsJWTBlackListed(rc)
 	isLoggedOut := authenticationservice.IsLoggedOut(isJWTBlackListed)
-	jwtconf := jsonwebtoken.JWTConfig{
-		SecretKey:     []byte("itssignaturekey"),
-		SigningMethod: jwt.SigningMethodHS256,
-	}
-	return Authenticate(parseJWT, isLoggedOut, jwtconf)
+	// jwtconf := jsonwebtoken.JWTConfig{
+	// 	SecretKey:     []byte("itssignaturekey"),
+	// 	SigningMethod: jwt.SigningMethodHS256,
+	// }
+	parseJWT := jsonwebtokenservice.ParseJWT([]byte("itssignaturekey"), jwt.SigningMethodHS256)
+
+	return Authenticate(parseJWT, isLoggedOut)
 }

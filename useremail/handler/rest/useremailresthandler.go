@@ -2,6 +2,7 @@ package useremailresthandler
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	useremailsqlrepo "samase/useremail/repository/sql"
 	useremailservice "samase/useremail/service"
@@ -23,6 +24,7 @@ func DoesEmailExist(
 		email := ectx.Param("email")
 		exist, err := doesEmailExist(ctx, email)
 		if err != nil {
+			log.Println(err)
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
 		var resp struct {

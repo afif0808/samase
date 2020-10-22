@@ -94,7 +94,7 @@ func (ussf *UserSQLFetcher) GetUsers(ctx context.Context, opts *options.Options)
 func (ussf *UserSQLFetcher) WithEmail() {
 	ussf.Receiver.UserEmail = &useremail.UserEmail{}
 	ussf.fields += "user_email.value,user_email.verified,"
-	ussf.joins += " INNER JOIN user_email ON user.id = user_email.user_id"
+	ussf.joins += " INNER JOIN user_email ON user.id = user_email.user_id "
 	ussf.scanDest = append(
 		ussf.scanDest,
 		&ussf.Receiver.UserEmail.Value,
@@ -104,7 +104,7 @@ func (ussf *UserSQLFetcher) WithEmail() {
 func (ussf *UserSQLFetcher) WithPassword() {
 	ussf.Receiver.UserPassword = &userpassword.UserPassword{}
 	ussf.fields += "user_password.hash,"
-	ussf.joins += "INNER JOIN user_password ON user.id = user_password.user_id"
+	ussf.joins += "INNER JOIN user_password ON user.id = user_password.user_id "
 	ussf.scanDest = append(
 		ussf.scanDest,
 		&ussf.Receiver.UserPassword.Hash,

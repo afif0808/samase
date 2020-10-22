@@ -16,3 +16,11 @@ type JWTConfig struct {
 	SecretKey     interface{}
 	SigningMethod jwt.SigningMethod
 }
+
+type GoogleClaims struct {
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+	FirstName     string `json:"given_name"`
+	LastName      string `json:"family_name"`
+	jwt.StandardClaims
+}
