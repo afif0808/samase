@@ -8,4 +8,5 @@ type Notification struct {
 	Message string    `json:"message"`
 	Date    time.Time `json:"date"`
 	UserID  int64     `json:"-"`
+	IsRead  bool      `json:"is_read"`
 }

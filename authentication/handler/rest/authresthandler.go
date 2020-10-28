@@ -25,25 +25,25 @@ import (
 
 	"gopkg.in/gomail.v2"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gomodule/redigo/redis"
 
 	authenticationservice "samase/authentication/service"
 	jsonwebtokenservice "samase/jsonwebtoken/service"
-
-	"github.com/dgrijalva/jwt-go"
 
 	"github.com/labstack/echo"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redis.Conn) {
-	ussf := usersqlrepo.NewUserSQLFetcher(conn)
+	gussf := usersqlrepo.GetUserSQLFetcher(conn)
+	// ussf := usersqlrepo.NewUserSQLFetcher(conn)
 	secretKey := []byte("itssignaturekey")
 	jwtsm := jwt.SigningMethodHS256
 	createJWT := jsonwebtokenservice.CreateJWT(secretKey, jwtsm)
 	parseJWT := jsonwebtokenservice.ParseJWT(secretKey, jwtsm)
 	tokenDuration := time.Hour * 30
-	login := authenticationservice.Login(&ussf)
+	login := authenticationservice.Login(usersqlrepo.GetUserSQLFetcher(conn))
 	ee.POST(
 		"/login",
 		Login(
@@ -53,7 +53,7 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 		),
 	)
 	audience := "744967159273-rhjtp67vu4075un8hftrp5silgbh2n6f.apps.googleusercontent.com"
-	credentialFile := "/media/afif0808/data/AnotherDownloads/quickstart-1551068193473-9dbbc6225250.json"
+	credentialFile := "/root/another-gogole.json"
 	verifyIDToken := authenticationservice.GoogleVerifyIDToken(audience, credentialFile)
 
 	createUser := usersqlrepo.CreateUser(conn)
@@ -64,13 +64,13 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 	mailer.SetHeader("From", mailer.FormatAddress("afifsamase@gmail.com", "SamaseApp"))
 	dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "samaseafif87")
 	sendEmail := samasemailservice.SendEmail(dialer, mailer)
-	ee.POST("/login/google", GoogleLogin(userservice.CreateUser(createUser, createUserEmail, createUserPassword), userservice.GetUserByEmail(&ussf), verifyIDToken, createJWT, tokenDuration, sendEmail))
+	ee.POST("/login/google", GoogleLogin(userservice.CreateUser(createUser, createUserEmail, createUserPassword), userservice.GetUserByEmail(gussf), verifyIDToken, createJWT, tokenDuration, sendEmail))
 	ee.GET("/authenticate/android", AndroidAuthenticate(authenticationmiddleware.InjectAuthenticate()))
 	blackListJWT := jsonwebtokenredisrepo.BlackListJWT(redisConn)
 	logout := authenticationservice.Logout(blackListJWT)
 	ee.GET("/logout", Logout(logout))
 
-	getUserByID := userservice.GetUserByID(&ussf)
+	getUserByID := userservice.GetUserByID(gussf)
 
 	refreshToken := authenticationservice.RefreshToken(createJWT, parseJWT, getUserByID)
 
@@ -201,7 +201,7 @@ func GoogleLogin(
 
 		if us == nil {
 			fullname := fmt.Sprint(payload.Claims["name"])
-			name := strings.ToLower(strings.ReplaceAll(fullname, " ", ""))
+			name := strings.ToLower(strings.Replace(fullname, " ", "", -1))
 			log.Println(payload.Claims)
 			us = &user.User{
 				Name:     name,

@@ -52,8 +52,9 @@ func checkPasswordHash(hash, password string) bool {
 	return err == nil
 }
 
-func Login(usfe userrepo.UserFetcher) LoginFunc {
+func Login(gusfe userrepo.GetUserFetcherFunc) LoginFunc {
 	return func(ctx context.Context, email, password string) (*user.User, error) {
+		usfe := gusfe()
 		usfe.WithEmail()
 		usfe.WithPassword()
 		uss, err := usfe.GetUsers(ctx, &options.Options{

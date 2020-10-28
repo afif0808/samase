@@ -12,8 +12,8 @@ import (
 )
 
 func InjectNotificationRESTHandler(conn *sql.DB, ee *echo.Echo) {
-	notfsf := notificationsqlrepo.NewNotificationSQLFetcher(conn)
-	getNotificationsByUserID := notificationservice.GetNotificationsByUserID(&notfsf)
+	// notfsf := notificationsqlrepo.NewNotificationSQLFetcher(conn)
+	getNotificationsByUserID := notificationservice.GetNotificationsByUserID(notificationsqlrepo.GetNotifications(conn))
 	ee.GET("/users/:id/notifications", GetNotificationsByUserID(getNotificationsByUserID))
 
 	ussf := usersqlrepo.NewUserSQLFetcher(conn)
@@ -21,6 +21,12 @@ func InjectNotificationRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	createNotificationForAllUsers := notificationservice.CreateNotificationForAllUsers(&ussf, createNotification)
 
 	ee.POST("/notifications", CreateNotificationForAllUsers(createNotificationForAllUsers))
+
+	markAsReadNotificationByID := notificationservice.MarkNotificationAsReadByID(notificationsqlrepo.MarkNotificationAsRead(conn))
+	ee.POST("/notifications/:id/read", MarkNotificationAsReadByID(markAsReadNotificationByID))
+
+	getUnreadNotificationsCountByUserID := notificationservice.GetUnreadNotificationCountByUserID(notificationsqlrepo.GetNotifications(conn))
+	ee.GET("/users/:id/notifications/unread/count", GetUnreadNotificationsCountByUserID(getUnreadNotificationsCountByUserID))
 }
 
 func GetNotificationsByUserID(getNotificationsByUserID notificationservice.GetNotificationsByUserIDFunc) echo.HandlerFunc {
@@ -43,7 +49,7 @@ func createNotificationForAllUsers() {
 }
 
 func CreateNotificationForAllUsers(
-	createNotificationForALlUsers notificationservice.CreateNotificationForAllUsersFunc,
+	createNotificationForAllUsers notificationservice.CreateNotificationForAllUsersFunc,
 ) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
 		ctx := ectx.Request().Context()
@@ -55,10 +61,47 @@ func CreateNotificationForAllUsers(
 		if err != nil {
 			return ectx.JSON(http.StatusBadRequest, nil)
 		}
-		err = createNotificationForALlUsers(ctx, post.Title, post.Message)
+		err = createNotificationForAllUsers(ctx, post.Title, post.Message)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
 		return ectx.JSON(http.StatusCreated, nil)
+	}
+}
+
+func MarkNotificationAsReadByID(markAsRead notificationservice.MarkNotificationAsReadByIDFunc) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+
+		id, err := strconv.ParseInt(ectx.Param("id"), 10, 64)
+		if err != nil {
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+		err = markAsRead(ctx, id)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, nil)
+	}
+}
+
+// func GetUnreadNotificationsByUserID() echo.HandlerFunc {
+// 	return func(ectx echo.Context) error {
+
+// 	}
+// }
+
+func GetUnreadNotificationsCountByUserID(getCount notificationservice.GetUnreadNotificationCountByUserIDFunc) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		id, err := strconv.ParseInt(ectx.Param("id"), 10, 64)
+		if err != nil {
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+		count, err := getCount(ctx, id)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, count)
 	}
 }

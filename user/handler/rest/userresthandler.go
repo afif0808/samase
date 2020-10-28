@@ -6,9 +6,11 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	samasemodels "samase/models"
 	samasemailservice "samase/samasemail/service"
 	"samase/user"
+	userredisrepo "samase/user/repository/redis"
 	usersqlrepo "samase/user/repository/sql"
 	userservice "samase/user/service"
 	"samase/useremail"
@@ -21,9 +23,26 @@ import (
 
 	"gopkg.in/gomail.v2"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/labstack/echo"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func redisPool() *redis.Pool {
+	return &redis.Pool{
+		MaxIdle:   50,
+		MaxActive: 10000,
+		Dial: func() (redis.Conn, error) {
+			conn, err := redis.Dial("tcp", ":6379")
+			// Connection error handling
+			if err != nil {
+				log.Printf("ERROR: fail initializing the redis pool: %s", err.Error())
+				os.Exit(1)
+			}
+			return conn, err
+		},
+	}
+}
 
 func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	createUser := usersqlrepo.CreateUser(conn)
@@ -35,14 +54,25 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "samaseafif87")
 	sendEmail := samasemailservice.SendEmail(dialer, mailer)
 
-	ee.POST("/users", CreateUser(userservice.CreateUser(createUser, createUserEmail, createUserPassword), sendEmail))
+	rp := redisPool()
+	rc, _ := rp.Dial()
 
-	ussf := usersqlrepo.NewUserSQLFetcher(conn)
-	doesNameExist := userservice.DoesNameExist(&ussf)
+	saveEmailConfirmationCode := userredisrepo.SaveEmailConfirmationCode(rc)
+	sendUserConfirmationEmail := userservice.SendUserConfirmationEmail(sendEmail, saveEmailConfirmationCode)
+
+	ee.POST("/users", CreateUser(userservice.CreateUser(createUser, createUserEmail, createUserPassword), sendUserConfirmationEmail))
+	gussf := usersqlrepo.GetUserSQLFetcher(conn)
+	// ussf := usersqlrepo.NewUserSQLFetcher(conn)
+	doesNameExist := userservice.DoesNameExist(gussf)
 
 	ee.GET("/users/name/exists/:name", DoesNameExist(doesNameExist))
 	updateUser := userservice.UpdateUser(usersqlrepo.UpdateUsers(conn), useremailsqlrepo.UpdateUserEmails(conn))
 	ee.POST("/users/:id", UpdateUser(updateUser))
+	confirmUserEmail := userservice.ConfirmUserEmail(
+		userredisrepo.CheckEmailConfirmationCode(rc),
+		useremailsqlrepo.UpdateUserEmails(conn),
+	)
+	ee.POST("/users/email/confirm", ConfirmUserEmail(confirmUserEmail))
 }
 
 func randString(n int) string {
@@ -57,10 +87,9 @@ func randString(n int) string {
 
 func CreateUser(
 	createUser userservice.CreateUserFunc,
-	sendEmail samasemailservice.SendEmailFunc,
+	sendUserConfirmationEmail userservice.SendUserConfirmationEmailFunc,
 ) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
-
 		ctx := ectx.Request().Context()
 		if ctx == nil {
 			ctx = context.Background()
@@ -81,15 +110,12 @@ func CreateUser(
 		if err != nil {
 			return ectx.JSON(http.StatusBadRequest, samasemodels.RESTResponse{Message: "Error : invalid or empty body"})
 		}
-
 		name := strings.ToLower(post.Fullname)
 		name = strings.ReplaceAll(name, " ", "")
-
 		passwordHash, err := hashPassword(post.Password)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
-
 		us := user.User{
 			Name:     name,
 			Fullname: post.Fullname,
@@ -104,12 +130,10 @@ func CreateUser(
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
-		code := "<h1>" + randString(4) + "</h1>"
 		go func() {
-			err = sendEmail(ctx, []string{post.Email}, "Konfirmasi email anda", code)
+			err = sendUserConfirmationEmail(ctx, post.Email)
 			log.Println(err)
 		}()
-
 		return ectx.JSON(http.StatusOK, us)
 	}
 }
@@ -159,6 +183,26 @@ func UpdateUser(updateUser userservice.UpdateUserFunc) echo.HandlerFunc {
 		err = updateUser(ctx, us)
 		if err != nil {
 			log.Println(err)
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, nil)
+	}
+}
+
+func ConfirmUserEmail(confirmEmail userservice.ConfirmUserEmailFunc) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		var post struct {
+			Code  string `json:"code"`
+			Email string `json:"email"`
+		}
+		err := ectx.Bind(&post)
+		if err != nil {
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+		err = confirmEmail(ctx, post.Email, post.Code)
+		log.Println(err)
+		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
 		return ectx.JSON(http.StatusOK, nil)

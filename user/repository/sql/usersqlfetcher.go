@@ -6,6 +6,7 @@ import (
 	"fifentory/options"
 	"log"
 	"samase/user"
+	userrepo "samase/user/repository"
 	"samase/useremail"
 	"samase/userpassword"
 	"samase/userpoint"
@@ -26,6 +27,13 @@ type UserSQLFetcher struct {
 	fields   string
 	Receiver *receiver
 	conn     *sql.DB
+}
+
+func GetUserSQLFetcher(conn *sql.DB) userrepo.GetUserFetcherFunc {
+	return func() userrepo.UserFetcher {
+		ussf := NewUserSQLFetcher(conn)
+		return &ussf
+	}
 }
 
 func NewUserSQLFetcher(conn *sql.DB) UserSQLFetcher {

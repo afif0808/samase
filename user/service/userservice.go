@@ -2,25 +2,18 @@ package userservice
 
 import (
 	"context"
+	"errors"
 	"fifentory/options"
 	"log"
+	"math/rand"
+	samasemailservice "samase/samasemail/service"
 	"samase/user"
 	userrepo "samase/user/repository"
+	"samase/useremail"
 	useremailrepo "samase/useremail/repository"
 	userpasswordrepo "samase/userpassword/repository"
+	"time"
 )
-
-type DoesNameExistFunc func(ctx context.Context, name string) (bool, error)
-
-type GetUserByEmailFunc func(ctx context.Context, email string) (*user.User, error)
-type GetUserByIDFunc func(ctx context.Context, id int64) (*user.User, error)
-
-type GetAllUsersFunc func(ctx context.Context) ([]user.User, error)
-
-
-type CreateUserFunc func(ctx context.Context, us user.User) (user.User, error)
-
-type UpdateUserFunc func(ctx context.Context, us user.User) error
 
 func CreateUser(
 	createUser userrepo.CreateUserFunc,
@@ -51,7 +44,7 @@ func CreateUser(
 }
 
 func DoesNameExist(
-	userFetcher userrepo.UserFetcher,
+	gusfe userrepo.GetUserFetcherFunc,
 ) DoesNameExistFunc {
 	return func(ctx context.Context, name string) (bool, error) {
 		opts := options.Options{
@@ -63,13 +56,15 @@ func DoesNameExist(
 				},
 			},
 		}
-		uss, err := userFetcher.GetUsers(ctx, &opts)
+		usfe := gusfe()
+		uss, err := usfe.GetUsers(ctx, &opts)
 		return len(uss) > 0, err
 	}
 }
 
-func GetUserByEmail(usfe userrepo.UserFetcher) GetUserByEmailFunc {
+func GetUserByEmail(gusfe userrepo.GetUserFetcherFunc) GetUserByEmailFunc {
 	return func(ctx context.Context, email string) (*user.User, error) {
+		usfe := gusfe()
 		usfe.WithEmail()
 		opts := options.Options{
 			Filters: []options.Filter{
@@ -91,7 +86,7 @@ func GetUserByEmail(usfe userrepo.UserFetcher) GetUserByEmailFunc {
 	}
 }
 
-func GetUserByID(usfe userrepo.UserFetcher) GetUserByIDFunc {
+func GetUserByID(gusfe userrepo.GetUserFetcherFunc) GetUserByIDFunc {
 	return func(ctx context.Context, id int64) (*user.User, error) {
 		opts := options.Options{
 			Filters: []options.Filter{
@@ -102,6 +97,7 @@ func GetUserByID(usfe userrepo.UserFetcher) GetUserByIDFunc {
 				},
 			},
 		}
+		usfe := gusfe()
 		usfe.WithEmail()
 		uss, err := usfe.GetUsers(ctx, &opts)
 		if err != nil {
@@ -141,5 +137,61 @@ func UpdateUser(
 			},
 		}
 		return updateUser(ctx, us, usfts)
+	}
+}
+
+func randString(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	letterRunes := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func SendUserConfirmationEmail(
+	sendEmail samasemailservice.SendEmailFunc,
+	saveEmailConfirmationCode userrepo.SaveEmailConfirmationCodeFunc,
+) SendUserConfirmationEmailFunc {
+	return func(ctx context.Context, email string) error {
+		code := randString(4)
+		err := saveEmailConfirmationCode(ctx, code+"-"+email, 10800)
+		if err != nil {
+			return err
+		}
+		mailBody := `
+			<h3>Terimakasih telah membuat akun member samase</h3>
+			Masukan kode dibawah ke kolom kode di aplikasi <br>
+			<h1>` + code + `</h1>
+		`
+		return sendEmail(ctx, []string{email}, "Konfirmasikan Email Anda", mailBody)
+	}
+}
+
+func ConfirmUserEmail(
+	checkEmailConfirmationCode userrepo.CheckEmailConfirmationCodeFunc,
+	updateUserEmail useremailrepo.UpdateUserEmailsFunc,
+) ConfirmUserEmailFunc {
+	return func(ctx context.Context, email string, code string) error {
+		exist, err := checkEmailConfirmationCode(ctx, code+"-"+email)
+		if err != nil {
+			return err
+		}
+		if !exist {
+			return errors.New("Error : there's no such confirmation code or already expired")
+		}
+		fts := []options.Filter{
+			options.Filter{
+				Operator: "=",
+				By:       "user_email.value",
+				Value:    email,
+			},
+		}
+		usem := useremail.UserEmail{
+			Value:    email,
+			Verified: true,
+		}
+		return updateUserEmail(ctx, usem, fts)
 	}
 }

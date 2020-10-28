@@ -6,6 +6,7 @@ import (
 	"fifentory/options"
 	"log"
 	"samase/notification"
+	notificationrepo "samase/notification/repository"
 )
 
 type receiver struct {
@@ -18,6 +19,13 @@ type NotificationSQLFetcher struct {
 	fields   string
 	Receiver *receiver
 	conn     *sql.DB
+}
+
+func GetNotificationSQLFetcher(conn *sql.DB) notificationrepo.GetNotificationFetcherFunc {
+	return func() notificationrepo.NotificationFetcher {
+		notfsf := NewNotificationSQLFetcher(conn)
+		return &notfsf
+	}
 }
 
 func NewNotificationSQLFetcher(conn *sql.DB) NotificationSQLFetcher {
@@ -37,6 +45,7 @@ func (notfsf *NotificationSQLFetcher) Fetch(ctx context.Context, opts *options.O
 		&notfsf.Receiver.Notification.Name,
 		&notfsf.Receiver.Notification.Message,
 		&notfsf.Receiver.Notification.Date,
+		&notfsf.Receiver.Notification.IsRead,
 	)
 
 	defer func() {
@@ -46,13 +55,16 @@ func (notfsf *NotificationSQLFetcher) Fetch(ctx context.Context, opts *options.O
 	}()
 
 	optionsQuery, optionsArgs := options.ParseOptionsToSQLQuery(opts)
+
 	query := "SELECT " + notfsf.fields + " FROM " + notificationTable + " " + optionsQuery
 	rows, err := notfsf.conn.QueryContext(ctx, query, optionsArgs...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	notfs := []notification.Notification{}
+
 	for rows.Next() {
 		err := rows.Scan(notfsf.scanDest...)
 		if err != nil {
@@ -65,9 +77,11 @@ func (notfsf *NotificationSQLFetcher) Fetch(ctx context.Context, opts *options.O
 				Name:    notfsf.Receiver.Notification.Name,
 				Message: notfsf.Receiver.Notification.Message,
 				Date:    notfsf.Receiver.Notification.Date,
+				IsRead:  notfsf.Receiver.Notification.IsRead,
 			}
 			notfs = append(notfs, notf)
 		}
 	}
+
 	return notfs, nil
 }

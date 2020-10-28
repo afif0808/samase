@@ -8,7 +8,7 @@ import (
 	userrepo "samase/user/repository"
 )
 
-func GetNotificationsByUserID(nf notificationrepo.NotificationFetcher) GetNotificationsByUserIDFunc {
+func GetNotificationsByUserID(getNotifications notificationrepo.GetNotificationsFunc) GetNotificationsByUserIDFunc {
 	return func(ctx context.Context, userID int64) ([]notification.Notification, error) {
 		opts := options.Options{
 			Filters: []options.Filter{
@@ -20,7 +20,7 @@ func GetNotificationsByUserID(nf notificationrepo.NotificationFetcher) GetNotifi
 			},
 		}
 
-		return nf.Fetch(ctx, &opts)
+		return getNotifications(ctx, &opts)
 	}
 }
 
@@ -45,5 +45,46 @@ func CreateNotificationForAllUsers(
 			}
 		}
 		return nil
+	}
+}
+
+func MarkNotificationAsReadByID(markNotificationAsRead notificationrepo.MarkNotificationAsReadFunc) MarkNotificationAsReadByIDFunc {
+	return func(ctx context.Context, id int64) error {
+		fts := []options.Filter{
+			options.Filter{
+				By:       "notification.id",
+				Operator: "=",
+				Value:    id,
+			},
+		}
+		return markNotificationAsRead(ctx, fts)
+	}
+}
+
+func GetUnreadNotificationsByUserID() {
+
+}
+
+func GetUnreadNotificationCountByUserID(getNotifications notificationrepo.GetNotificationsFunc) GetUnreadNotificationCountByUserIDFunc {
+	return func(ctx context.Context, userID int64) (int, error) {
+		opts := options.Options{
+			Filters: []options.Filter{
+				options.Filter{
+					By:       "notification.user_id",
+					Operator: "=",
+					Value:    userID,
+				},
+				options.Filter{
+					By:       "notification.is_read",
+					Operator: "=",
+					Value:    0,
+				},
+			},
+		}
+		notfs, err := getNotifications(ctx, &opts)
+		if err != nil {
+			return 0, err
+		}
+		return len(notfs), err
 	}
 }
