@@ -111,7 +111,7 @@ func CreateUser(
 			return ectx.JSON(http.StatusBadRequest, samasemodels.RESTResponse{Message: "Error : invalid or empty body"})
 		}
 		name := strings.ToLower(post.Fullname)
-		name = strings.ReplaceAll(name, " ", "")
+		name = strings.Replace(name, " ", "", -1)
 		passwordHash, err := hashPassword(post.Password)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
