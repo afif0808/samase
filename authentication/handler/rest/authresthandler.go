@@ -62,7 +62,7 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 
 	mailer := gomail.NewMessage()
 	mailer.SetHeader("From", mailer.FormatAddress("afifsamase@gmail.com", "SamaseApp"))
-	dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "samaseafif87")
+	dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "afifsamase0808")
 	sendEmail := samasemailservice.SendEmail(dialer, mailer)
 	ee.POST("/login/google", GoogleLogin(userservice.CreateUser(createUser, createUserEmail, createUserPassword), userservice.GetUserByEmail(gussf), verifyIDToken, createJWT, tokenDuration, sendEmail))
 	ee.GET("/authenticate/android", AndroidAuthenticate(authenticationmiddleware.InjectAuthenticate()))

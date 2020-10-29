@@ -51,7 +51,7 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 
 	mailer := gomail.NewMessage()
 	mailer.SetHeader("From", mailer.FormatAddress("afifsamase@gmail.com", "SamaseApp"))
-	dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "samaseafif87")
+	dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "afifsamase0808")
 	sendEmail := samasemailservice.SendEmail(dialer, mailer)
 
 	rp := redisPool()
