@@ -216,10 +216,10 @@ func GoogleLogin(
 				return ectx.JSON(http.StatusInternalServerError, nil)
 			}
 
-			err = sendEmail(ctx, []string{email}, "Ahlan wa sahlan.", "<h1>Ahlan wa sahlan</h1>")
-			if err != nil {
-				return ectx.JSON(http.StatusInternalServerError, nil)
-			}
+			// err = sendEmail(ctx, []string{email}, "Ahlan wa sahlan.", "<h1>Ahlan wa sahlan</h1>")
+			// if err != nil {
+			// 	return ectx.JSON(http.StatusInternalServerError, nil)
+			// }
 		}
 
 		sajwtcl := jsonwebtoken.SamaseJWTClaims{
