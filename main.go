@@ -54,10 +54,12 @@ func main() {
 	// json.NewDecoder(configFile).Decode(&config)
 
 	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samaseapp")+"?parseTime=true")
+
 	if err != nil {
 		log.Fatal(err)
 	}
 	err = conn.Ping()
+	log.Println(err)
 	if err != nil {
 		log.Fatal(err)
 	}
