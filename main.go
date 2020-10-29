@@ -53,7 +53,7 @@ func main() {
 
 	// json.NewDecoder(configFile).Decode(&config)
 
-	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samase")+"?parseTime=true")
+	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samaseapp")+"?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func main() {
 	uservoucherjunctionresthandler.InjectUserVoucherJunctionRESTHandler(conn, ee)
 	useremailresthandler.InjectUserEmailRESTHandler(conn, ee)
 	userpasswordresthandler.InjectUserPasswordRESTHandler(conn, ee)
-	ee.Static("/assets", "/media/afif0808/data/go/src/samase/assets")
+	ee.Static("/assets", "/root/go/src/samase/assets")
 	ee.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
