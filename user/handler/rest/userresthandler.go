@@ -60,7 +60,7 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	saveEmailConfirmationCode := userredisrepo.SaveEmailConfirmationCode(rc)
 	sendUserConfirmationEmail := userservice.SendUserConfirmationEmail(sendEmail, saveEmailConfirmationCode)
 
-	ee.POST("/users", CreateUser(userservice.CreateUser(createUser, createUserEmail, createUserPassword), sendUserConfirmationEmail))
+	ee.POST("/users", CreateUser(userservice.CreateUser(createUser, createUserEmail, createUserPassword)))
 	gussf := usersqlrepo.GetUserSQLFetcher(conn)
 	// ussf := usersqlrepo.NewUserSQLFetcher(conn)
 	doesNameExist := userservice.DoesNameExist(gussf)
@@ -73,6 +73,7 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 		useremailsqlrepo.UpdateUserEmails(conn),
 	)
 	ee.POST("/users/email/confirm", ConfirmUserEmail(confirmUserEmail))
+	ee.POST("/users/email/confirmationcode", SendUserEmailConfirmation(sendUserConfirmationEmail))
 }
 
 func randString(n int) string {
@@ -87,7 +88,6 @@ func randString(n int) string {
 
 func CreateUser(
 	createUser userservice.CreateUserFunc,
-	sendUserConfirmationEmail userservice.SendUserConfirmationEmailFunc,
 ) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
 		ctx := ectx.Request().Context()
@@ -130,10 +130,10 @@ func CreateUser(
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
-		go func() {
-			err = sendUserConfirmationEmail(ctx, post.Email)
-			log.Println(err)
-		}()
+		// go func() {
+		// 	err = sendUserConfirmationEmail(ctx, post.Email)
+		// 	log.Println(err)
+		// }()
 		return ectx.JSON(http.StatusOK, us)
 	}
 }
@@ -194,7 +194,7 @@ func ConfirmUserEmail(confirmEmail userservice.ConfirmUserEmailFunc) echo.Handle
 		ctx := ectx.Request().Context()
 		var post struct {
 			Code  string `json:"code"`
-			Email string `json:"email"`
+			Email string `json:"email`
 		}
 		err := ectx.Bind(&post)
 		if err != nil {
@@ -202,6 +202,27 @@ func ConfirmUserEmail(confirmEmail userservice.ConfirmUserEmailFunc) echo.Handle
 		}
 		err = confirmEmail(ctx, post.Email, post.Code)
 		log.Println(err)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, nil)
+	}
+}
+
+func SendUserEmailConfirmation(
+	sendUserConfirmationEmail userservice.SendUserConfirmationEmailFunc,
+) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		var post struct {
+			Email string `json:"email"`
+		}
+		err := ectx.Bind(&post)
+		log.Println(err, post)
+		if err != nil {
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+		err = sendUserConfirmationEmail(ctx, post.Email)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}

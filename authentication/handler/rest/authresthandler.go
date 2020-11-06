@@ -113,6 +113,13 @@ func Login(
 			log.Println("Eeh", us, err)
 			return ectx.JSON(http.StatusUnauthorized, samasemodels.RESTResponse{Message: "login failed"})
 		}
+		// log.Println("LOL", us.Email)
+		// if us.Email.Verified == false {
+		// 	return ectx.JSON(http.StatusOK, struct {
+		// 		Verified bool `json:"verified"`
+		// 	}{Verified: false})
+		// }
+
 		sajwtcl := jsonwebtoken.SamaseJWTClaims{
 			StandardClaims: jwt.StandardClaims{
 				ExpiresAt: time.Now().Add(tokenDuration).Unix(),
