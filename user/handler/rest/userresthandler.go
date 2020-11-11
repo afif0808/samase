@@ -181,7 +181,7 @@ func UpdateUser(updateUser userservice.UpdateUserFunc) echo.HandlerFunc {
 		if err != nil {
 			return ectx.JSON(http.StatusBadRequest, nil)
 		}
-		us := user.User{ID: id, Fullname: post.Fullname, Email: &useremail.UserEmail{Value: post.Email, UserID: id}}
+		us := user.User{ID: id, Fullname: post.Fullname, Name: post.Name, Email: &useremail.UserEmail{Value: post.Email, Verified: post.EmailVerified, UserID: id}}
 		err = updateUser(ctx, us)
 		if err != nil {
 			log.Println(err)
