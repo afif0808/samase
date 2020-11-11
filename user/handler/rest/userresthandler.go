@@ -168,8 +168,10 @@ func UpdateUser(updateUser userservice.UpdateUserFunc) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
 		ctx := ectx.Request().Context()
 		var post struct {
-			Fullname string `json:"fullname"`
-			Email    string `json:"email"`
+			Fullname      string `json:"fullname"`
+			Email         string `json:"email"`
+			EmailVerified bool   `json:"email_verified"`
+			Name          string `json:"name"`
 		}
 		id, err := strconv.ParseInt(ectx.Param("id"), 10, 64)
 		if err != nil {
