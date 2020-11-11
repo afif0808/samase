@@ -42,7 +42,7 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 	jwtsm := jwt.SigningMethodHS256
 	createJWT := jsonwebtokenservice.CreateJWT(secretKey, jwtsm)
 	parseJWT := jsonwebtokenservice.ParseJWT(secretKey, jwtsm)
-	tokenDuration := time.Hour * 30
+	tokenDuration := time.Hour * 876600
 	login := authenticationservice.Login(usersqlrepo.GetUserSQLFetcher(conn))
 	ee.POST(
 		"/login",
@@ -52,8 +52,8 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 			tokenDuration,
 		),
 	)
-	audience := "744967159273-rhjtp67vu4075un8hftrp5silgbh2n6f.apps.googleusercontent.com"
-	credentialFile := "/root/another-gogole.json"
+	audience := "237241376283-22uvmh1gnp894n1o4t3n3igulhbgu147.apps.googleusercontent.com"
+	credentialFile := "/root/go/src/samase/samase-serviceaccount.json"
 	verifyIDToken := authenticationservice.GoogleVerifyIDToken(audience, credentialFile)
 
 	createUser := usersqlrepo.CreateUser(conn)
