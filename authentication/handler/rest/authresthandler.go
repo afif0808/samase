@@ -52,7 +52,7 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 			tokenDuration,
 		),
 	)
-	audience := "237241376283-22uvmh1gnp894n1o4t3n3igulhbgu147.apps.googleusercontent.com"
+	audience := "237241376283-0h2i2j36jmpagp6pc90rkkn8jd5cpt4u.apps.googleusercontent.com"
 	credentialFile := "/root/go/src/samase/samase-serviceaccount.json"
 	verifyIDToken := authenticationservice.GoogleVerifyIDToken(audience, credentialFile)
 
