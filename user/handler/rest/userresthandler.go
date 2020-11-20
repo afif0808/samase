@@ -74,6 +74,18 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	)
 	ee.POST("/users/email/confirm", ConfirmUserEmail(confirmUserEmail))
 	ee.POST("/users/email/confirmationcode", SendUserEmailConfirmation(sendUserConfirmationEmail))
+
+	savePasswordRecoveryCode := userredisrepo.SavePasswordRecoveryCode(rc)
+	sendPasswordRecoveryCode := userservice.SendPasswordRecoveryCode(sendEmail, savePasswordRecoveryCode)
+
+	ee.POST("/users/password/recoverycode", SendPasswordRecoveryCode(sendPasswordRecoveryCode))
+
+	confirmPasswordRecovery := userservice.ConfirmPasswordRecoveryCode(userredisrepo.CheckPasswordRecoveryCode(rc), userredisrepo.RemovePasswordRecoveryCode(rc))
+
+	getUserByEmail := userservice.GetUserByEmail(gussf)
+
+	ee.POST("/users/password/confirmrecoverycode", ConfirmPasswordRecoveryCode(confirmPasswordRecovery, getUserByEmail))
+
 }
 
 func randString(n int) string {
@@ -196,7 +208,7 @@ func ConfirmUserEmail(confirmEmail userservice.ConfirmUserEmailFunc) echo.Handle
 		ctx := ectx.Request().Context()
 		var post struct {
 			Code  string `json:"code"`
-			Email string `json:"email`
+			Email string `json:"email"`
 		}
 		err := ectx.Bind(&post)
 		if err != nil {
@@ -229,5 +241,52 @@ func SendUserEmailConfirmation(
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
 		return ectx.JSON(http.StatusOK, nil)
+	}
+}
+
+func SendPasswordRecoveryCode(
+	sendCode userservice.SendPasswordRecoveryCodeFunc,
+) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		var post struct {
+			Email string `json:"email"`
+		}
+		err := ectx.Bind(&post)
+		if err != nil {
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+		err = sendCode(ctx, post.Email)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, nil)
+	}
+}
+func ConfirmPasswordRecoveryCode(
+	confirmCode userservice.ConfirmPasswordRecoveryCodeFunc,
+	getUserByEmail userservice.GetUserByEmailFunc,
+) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		var post struct {
+			Email string `json:"email"`
+			Code  string `json:"code"`
+		}
+		err := ectx.Bind(&post)
+		if err != nil {
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+		log.Println(post)
+		err = confirmCode(ctx, post.Email, post.Code)
+		if err != nil {
+			log.Println(err)
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		us, err := getUserByEmail(ctx, post.Email)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, us)
 	}
 }

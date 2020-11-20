@@ -22,3 +22,9 @@ type UserFetcher interface {
 type GetUserFetcherFunc func() UserFetcher
 
 type CheckEmailConfirmationCodeFunc func(ctx context.Context, code string) (bool, error)
+
+type SavePasswordRecoveryCodeFunc func(ctx context.Context, code string, duration int) error
+
+type CheckPasswordRecoveryCodeFunc func(ctx context.Context, code string) (bool, error)
+
+type RemovePasswordRecoveryCodeFunc func(ctx context.Context, code string) error

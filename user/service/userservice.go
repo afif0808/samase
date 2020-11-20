@@ -195,3 +195,44 @@ func ConfirmUserEmail(
 		return updateUserEmail(ctx, usem, fts)
 	}
 }
+
+func SendPasswordRecoveryCode(
+	sendEmail samasemailservice.SendEmailFunc,
+	savePasswordRecovery userrepo.SavePasswordRecoveryCodeFunc,
+) SendPasswordRecoveryCodeFunc {
+	return func(ctx context.Context, email string) error {
+		code := randString(4)
+		err := savePasswordRecovery(ctx, "PR-"+code+"-"+email, 10800)
+		if err != nil {
+			return err
+		}
+		mailBody := `
+			<h3>Berikut merupakan kode untuk mengatur ulang password anda</h3>
+			Masukan kode dibawah ke kolom kode di aplikasi <br>
+			<h1>` + code + `</h1>
+			Jangan beritahukan kode ini kepada siapa pun
+		`
+		return sendEmail(ctx, []string{email}, "Atur ulang kata sandi", mailBody)
+	}
+}
+
+func ConfirmPasswordRecoveryCode(
+	check userrepo.CheckPasswordRecoveryCodeFunc,
+	removeCode userrepo.RemovePasswordRecoveryCodeFunc,
+) ConfirmPasswordRecoveryCodeFunc {
+	return func(ctx context.Context, email, code string) error {
+		code = "PR-" + code + "-" + email
+		exist, err := check(ctx, code)
+		if err != nil {
+			return errors.New("Error : there was a problem checking the code")
+		}
+		if !exist {
+			return errors.New("Error : the given code not found , either it's already expired or never existed in the first place")
+		}
+		err = removeCode(ctx, code)
+		if err != nil {
+			return errors.New("Error : failed to remove the recovery code")
+		}
+		return nil
+	}
+}
