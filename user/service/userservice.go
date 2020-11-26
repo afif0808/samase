@@ -286,16 +286,16 @@ func RecoverUserPassword(
 		if err != nil {
 			return err
 		}
-
+		log.Println(password)
 		passwordHash, err := hashPassword(password)
 
 		if err != nil {
 			return err
 		}
-
+		log.Println(passwordHash)
 		uspa := userpassword.UserPassword{
 			UserID: id,
-			Hash:  passwordHash,
+			Hash:   passwordHash,
 		}
 		return updateUsserPassword(ctx, uspa)
 	}

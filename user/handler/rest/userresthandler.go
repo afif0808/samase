@@ -341,6 +341,7 @@ func RecoverAccountPassword(
 		if err != nil {
 			return ectx.JSON(http.StatusBadRequest, nil)
 		}
+		log.Println(post)
 		err = recoverUserPassword(ctx, post.Code, post.Password)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
