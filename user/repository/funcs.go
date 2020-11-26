@@ -28,3 +28,9 @@ type SavePasswordRecoveryCodeFunc func(ctx context.Context, code string, duratio
 type CheckPasswordRecoveryCodeFunc func(ctx context.Context, code string) (bool, error)
 
 type RemovePasswordRecoveryCodeFunc func(ctx context.Context, code string) error
+
+type GetUserIDByCodeFunc func(ctx context.Context, code string) (int64, error)
+
+type SaveUserIDByCodeFunc func(ctx context.Context, code string, userID int64) error
+
+type RetrieveUserIDByCodeFunc func(ctx context.Context, code string) (int64, error)

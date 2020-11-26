@@ -11,7 +11,9 @@ import (
 	userrepo "samase/user/repository"
 	"samase/useremail"
 	useremailrepo "samase/useremail/repository"
+	"samase/userpassword"
 	userpasswordrepo "samase/userpassword/repository"
+	userpasswordservice "samase/userpassword/service"
 	"time"
 )
 
@@ -234,5 +236,54 @@ func ConfirmPasswordRecoveryCode(
 			return errors.New("Error : failed to remove the recovery code")
 		}
 		return nil
+	}
+}
+
+func SendAccountPasswordRecoveryLink(
+	saveUserIDByCode userrepo.SaveUserIDByCodeFunc,
+	getUserByEmail GetUserByEmailFunc,
+	sendEmail samasemailservice.SendEmailFunc,
+	baseURL string,
+) SendAccountPasswordRecoveryLinkFunc {
+	return func(ctx context.Context, email string) error {
+		us, err := getUserByEmail(ctx, email)
+		if err != nil {
+			return nil
+		}
+
+		code := randString(8)
+
+		err = saveUserIDByCode(ctx, code, us.ID)
+
+		if err != nil {
+			return nil
+		}
+		link := baseURL + "?code=" + code
+		body := `
+			<h4>Klik link dibawah ini untuk mengatur ulang kata sandi anda</h4>
+			` + link + `<br>
+			Jangan sebarkan link ini kepada siapa pun
+		`
+		err = sendEmail(ctx, []string{email}, "Atur ulang kata sandi anda", body)
+		return err
+	}
+}
+
+func RecoverUserPassword(
+	retrieveUserIDByCode userrepo.RetrieveUserIDByCodeFunc,
+	updateUsserPassword userpasswordservice.UpdateUserPasswordFunc,
+) RecoverUserPasswordFunc {
+	return func(ctx context.Context, code, password string) error {
+		id, err := retrieveUserIDByCode(ctx, code)
+		log.Println(id, err)
+		if err != nil {
+			return err
+		}
+
+		uspa := userpassword.UserPassword{
+			UserID: id,
+			Value:  password,
+		}
+		return updateUsserPassword(ctx, uspa)
 	}
 }

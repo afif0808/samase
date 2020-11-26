@@ -24,3 +24,9 @@ type ConfirmUserEmailFunc func(ctx context.Context, email string, code string) e
 type SendPasswordRecoveryCodeFunc func(ctx context.Context, email string) error
 
 type ConfirmPasswordRecoveryCodeFunc func(ctx context.Context, email, code string) error
+
+type SendAccountPasswordRecoveryLinkFunc func(ctx context.Context, email string) error
+
+type GetUserIDByCodeFunc func(ctx context.Context, code string) (int64, error)
+
+type RecoverUserPasswordFunc func(ctx context.Context, code, password string) error

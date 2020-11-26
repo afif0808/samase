@@ -17,6 +17,7 @@ import (
 	useremailsqlrepo "samase/useremail/repository/sql"
 	"samase/userpassword"
 	userpasswordsqlrepo "samase/userpassword/repository/sql"
+	userpasswordservice "samase/userpassword/service"
 	"strconv"
 	"strings"
 	"time"
@@ -85,6 +86,21 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	getUserByEmail := userservice.GetUserByEmail(gussf)
 
 	ee.POST("/users/password/confirmrecoverycode", ConfirmPasswordRecoveryCode(confirmPasswordRecovery, getUserByEmail))
+
+	saveUserIDByCode := userredisrepo.SaveUserIDByCode(rc)
+
+	sendAccountPasswordRecoveryLink := userservice.SendAccountPasswordRecoveryLink(
+		saveUserIDByCode,
+		getUserByEmail,
+		sendEmail,
+		"https://nother.samasecentro.com/recoveraccount",
+	)
+
+	ee.POST("/users/password/recoverylink", SendAccountPasswordRecoveryLink(sendAccountPasswordRecoveryLink))
+
+	recoverAccountPassword := userservice.RecoverUserPassword(userredisrepo.RetrieveUserIDByCode(rc), userpasswordservice.UpdateUserPassword(userpasswordsqlrepo.UpdateUserPassword(conn)))
+
+	ee.POST("/users/password/recover", RecoverAccountPassword(recoverAccountPassword))
 
 }
 
@@ -263,6 +279,27 @@ func SendPasswordRecoveryCode(
 		return ectx.JSON(http.StatusOK, nil)
 	}
 }
+
+func SendAccountPasswordRecoveryLink(
+	recover userservice.SendAccountPasswordRecoveryLinkFunc,
+) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		var post struct {
+			Email string `json:"email"`
+		}
+		err := ectx.Bind(&post)
+		if err != nil {
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+		err = recover(ctx, post.Email)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, nil)
+	}
+}
+
 func ConfirmPasswordRecoveryCode(
 	confirmCode userservice.ConfirmPasswordRecoveryCodeFunc,
 	getUserByEmail userservice.GetUserByEmailFunc,
@@ -288,5 +325,26 @@ func ConfirmPasswordRecoveryCode(
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
 		return ectx.JSON(http.StatusOK, us)
+	}
+}
+
+func RecoverAccountPassword(
+	recoverUserPassword userservice.RecoverUserPasswordFunc,
+) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		ctx := ectx.Request().Context()
+		var post struct {
+			Code     string `json:"code"`
+			Password string `json:"password"`
+		}
+		err := ectx.Bind(&post)
+		if err != nil {
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+		err = recoverUserPassword(ctx, post.Code, post.Password)
+		if err != nil {
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		return ectx.JSON(http.StatusOK, nil)
 	}
 }
