@@ -93,7 +93,7 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 		saveUserIDByCode,
 		getUserByEmail,
 		sendEmail,
-		"https://nother.samasecentro.com/recoveraccount",
+		"https://nother.samasecentro.com",
 	)
 
 	ee.POST("/users/password/recoverylink", SendAccountPasswordRecoveryLink(sendAccountPasswordRecoveryLink))
