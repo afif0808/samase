@@ -15,6 +15,8 @@ import (
 	userpasswordrepo "samase/userpassword/repository"
 	userpasswordservice "samase/userpassword/service"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func CreateUser(
@@ -269,6 +271,11 @@ func SendAccountPasswordRecoveryLink(
 	}
 }
 
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
 func RecoverUserPassword(
 	retrieveUserIDByCode userrepo.RetrieveUserIDByCodeFunc,
 	updateUsserPassword userpasswordservice.UpdateUserPasswordFunc,
@@ -280,9 +287,15 @@ func RecoverUserPassword(
 			return err
 		}
 
+		passwordHash, err := hashPassword(password)
+
+		if err != nil {
+			return err
+		}
+
 		uspa := userpassword.UserPassword{
 			UserID: id,
-			Value:  password,
+			Value:  passwordHash,
 		}
 		return updateUsserPassword(ctx, uspa)
 	}
