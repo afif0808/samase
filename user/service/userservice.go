@@ -295,7 +295,7 @@ func RecoverUserPassword(
 
 		uspa := userpassword.UserPassword{
 			UserID: id,
-			Value:  passwordHash,
+			Hash:  passwordHash,
 		}
 		return updateUsserPassword(ctx, uspa)
 	}
