@@ -1,14 +1,19 @@
 package notificationresthandler
 
 import (
+	"context"
 	"database/sql"
+	"log"
 	"net/http"
 	notificationsqlrepo "samase/notification/repository/sql"
 	notificationservice "samase/notification/service"
 	usersqlrepo "samase/user/repository/sql"
+	userservice "samase/user/service"
 	"strconv"
 
+	firebase "firebase.google.com/go"
 	"github.com/labstack/echo"
+	"google.golang.org/api/option"
 )
 
 func InjectNotificationRESTHandler(conn *sql.DB, ee *echo.Echo) {
@@ -16,9 +21,22 @@ func InjectNotificationRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	getNotificationsByUserID := notificationservice.GetNotificationsByUserID(notificationsqlrepo.GetNotifications(conn))
 	ee.GET("/users/:id/notifications", GetNotificationsByUserID(getNotificationsByUserID))
 
+	opt := option.WithCredentialsFile("/home/afif0808/Downloads/samase-firebase-adminsdk-bt6ys-b8af576636.json")
+	app, err := firebase.NewApp(context.Background(), nil, opt)
+	if err != nil {
+		log.Fatal(err)
+	}
+	msgcl, err := app.Messaging(context.Background())
+	if err != nil {
+		log.Fatal(err)
+
+	}
+
 	ussf := usersqlrepo.NewUserSQLFetcher(conn)
 	createNotification := notificationsqlrepo.CreateNotification(conn)
-	createNotificationForAllUsers := notificationservice.CreateNotificationForAllUsers(&ussf, createNotification)
+	sendFirebaseNotification := notificationservice.SendFirebaseNotification(msgcl)
+	getUserWSs := userservice.GetUserWSs
+	createNotificationForAllUsers := notificationservice.CreateNotificationForAllUsers(&ussf, createNotification, sendFirebaseNotification, getUserWSs)
 
 	ee.POST("/notifications", CreateNotificationForAllUsers(createNotificationForAllUsers))
 

@@ -13,7 +13,8 @@ import (
 	jsonwebtokenrepo "samase/jsonwebtoken/repository"
 	jsonwebtokenredisrepo "samase/jsonwebtoken/repository/redis"
 	samasemodels "samase/models"
-	samasemailservice "samase/samasemail/service"
+	notificationsqlrepo "samase/notification/repository/sql"
+	notificationservice "samase/notification/service"
 	"samase/user"
 	usersqlrepo "samase/user/repository/sql"
 	userservice "samase/user/service"
@@ -22,8 +23,6 @@ import (
 	userpasswordsqlrepo "samase/userpassword/repository/sql"
 	"strings"
 	"time"
-
-	"gopkg.in/gomail.v2"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gomodule/redigo/redis"
@@ -60,11 +59,13 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 	createUserEmail := useremailsqlrepo.CreateUserEmail(conn)
 	createUserPassword := userpasswordsqlrepo.CreateUserPassword(conn)
 
-	mailer := gomail.NewMessage()
-	mailer.SetHeader("From", mailer.FormatAddress("afifsamase@gmail.com", "SamaseApp"))
-	dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "afifsamase0808")
-	sendEmail := samasemailservice.SendEmail(dialer, mailer)
-	ee.POST("/login/google", GoogleLogin(userservice.CreateUser(createUser, createUserEmail, createUserPassword), userservice.GetUserByEmail(gussf), verifyIDToken, createJWT, tokenDuration, sendEmail))
+	// mailer := gomail.NewMessage()
+	// mailer.SetHeader("From", mailer.FormatAddress("afifsamase@gmail.com", "SamaseApp"))
+	// dialer := gomail.NewDialer("smtp.gmail.com", 587, "afifsamase@gmail.com", "afifsamase0808")
+	// sendEmail := samasemailservice.SendEmail(dialer, mailer)
+	createNotification := notificationsqlrepo.CreateNotification(conn)
+	sendWelcomeNotification := notificationservice.SendWelcomeNotification(createNotification)
+	ee.POST("/login/google", GoogleLogin(userservice.CreateUser(createUser, createUserEmail, createUserPassword), userservice.GetUserByEmail(gussf), verifyIDToken, createJWT, tokenDuration, sendWelcomeNotification))
 	ee.GET("/authenticate/android", AndroidAuthenticate(authenticationmiddleware.InjectAuthenticate()))
 	blackListJWT := jsonwebtokenredisrepo.BlackListJWT(redisConn)
 	logout := authenticationservice.Logout(blackListJWT)
@@ -183,7 +184,7 @@ func GoogleLogin(
 	verifyIDToken authenticationservice.GoogleVerifyIDTokenFunc,
 	createJWT jsonwebtoken.CreateJWTFunc,
 	tokenDuration time.Duration,
-	sendEmail samasemailservice.SendEmailFunc,
+	sendWelcomeNotification notificationservice.SendWelcomeNotificationFunc,
 ) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
 		ctx := ectx.Request().Context()
@@ -193,10 +194,12 @@ func GoogleLogin(
 		}
 		err := ectx.Bind(&post)
 		if err != nil {
+			log.Println("Ini",err)
 			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
 		payload, err := verifyIDToken(ctx, post.IDToken)
 		if err != nil {
+			log.Println("Itu",err)
 			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
 		email := fmt.Sprint(payload.Claims["email"])

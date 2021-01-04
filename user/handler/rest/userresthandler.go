@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	samasemodels "samase/models"
+	notificationsqlrepo "samase/notification/repository/sql"
+	notificationservice "samase/notification/service"
 	samasemailservice "samase/samasemail/service"
 	"samase/user"
 	userredisrepo "samase/user/repository/redis"
@@ -25,6 +27,7 @@ import (
 	"gopkg.in/gomail.v2"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/gorilla/websocket"
 	"github.com/labstack/echo"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -60,8 +63,8 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 
 	saveEmailConfirmationCode := userredisrepo.SaveEmailConfirmationCode(rc)
 	sendUserConfirmationEmail := userservice.SendUserConfirmationEmail(sendEmail, saveEmailConfirmationCode)
-
-	ee.POST("/users", CreateUser(userservice.CreateUser(createUser, createUserEmail, createUserPassword)))
+	sendWelcomeNotification := notificationservice.SendWelcomeNotification(notificationsqlrepo.CreateNotification(conn))
+	ee.POST("/users", CreateUser(userservice.CreateUser(createUser, createUserEmail, createUserPassword), sendWelcomeNotification))
 	gussf := usersqlrepo.GetUserSQLFetcher(conn)
 	// ussf := usersqlrepo.NewUserSQLFetcher(conn)
 	doesNameExist := userservice.DoesNameExist(gussf)
@@ -101,6 +104,9 @@ func InjectUserRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	recoverAccountPassword := userservice.RecoverUserPassword(userredisrepo.RetrieveUserIDByCode(rc), userpasswordservice.UpdateUserPassword(userpasswordsqlrepo.UpdateUserPassword(conn)))
 
 	ee.POST("/users/password/recover", RecoverAccountPassword(recoverAccountPassword))
+	unregisterUserWebSocket := userservice.UnregisterUserWebSocket()
+	registerUserWebSocket := userservice.RegisterUserWebSocket()
+	ee.GET("/userws", UserWebSocket(registerUserWebSocket, unregisterUserWebSocket))
 
 }
 
@@ -116,6 +122,7 @@ func randString(n int) string {
 
 func CreateUser(
 	createUser userservice.CreateUserFunc,
+	sendWelcomeNotification notificationservice.SendWelcomeNotificationFunc,
 ) echo.HandlerFunc {
 	return func(ectx echo.Context) error {
 		ctx := ectx.Request().Context()
@@ -158,6 +165,12 @@ func CreateUser(
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
+		err = sendWelcomeNotification(ctx, us.ID)
+		if err != nil {
+
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+
 		// go func() {
 		// 	err = sendUserConfirmationEmail(ctx, post.Email)
 		// 	log.Println(err)
@@ -347,5 +360,41 @@ func RecoverAccountPassword(
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}
 		return ectx.JSON(http.StatusOK, nil)
+	}
+}
+
+var upgrader = websocket.Upgrader{}
+
+func UserWebSocket(
+	register userservice.RegisterUserWebSocketFunc,
+	unregister userservice.UnregisterUserWebSocketFunc,
+) echo.HandlerFunc {
+	return func(ectx echo.Context) error {
+		// ctx := ectx.Request().Context()
+		log.Println("Wow")
+		ws, err := upgrader.Upgrade(ectx.Response(), ectx.Request(), nil)
+		if err != nil {
+			log.Println("nol", err)
+			return ectx.JSON(http.StatusBadRequest, nil)
+		}
+
+		err = register(ws)
+		if err != nil {
+			log.Println("satu", err)
+			return ectx.JSON(http.StatusInternalServerError, nil)
+		}
+		defer func() {
+			ws.Close()
+			err = unregister(ws)
+			log.Println("dua", err)
+		}()
+		for {
+			_, _, err = ws.ReadMessage()
+			if err != nil {
+				log.Println(err)
+				break
+			}
+		}
+		return nil
 	}
 }

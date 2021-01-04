@@ -3,6 +3,8 @@ package userservice
 import (
 	"context"
 	"samase/user"
+
+	"github.com/gorilla/websocket"
 )
 
 type DoesNameExistFunc func(ctx context.Context, name string) (bool, error)
@@ -30,3 +32,7 @@ type SendAccountPasswordRecoveryLinkFunc func(ctx context.Context, email string)
 type GetUserIDByCodeFunc func(ctx context.Context, code string) (int64, error)
 
 type RecoverUserPasswordFunc func(ctx context.Context, code, password string) error
+
+type RegisterUserWebSocketFunc func(ws *websocket.Conn) error
+type UnregisterUserWebSocketFunc func(ws *websocket.Conn) error
+type GetUserWSsFunc func() map[*websocket.Conn]struct{}

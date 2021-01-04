@@ -9,13 +9,14 @@ import (
 	authenticationresthandler "samase/authentication/handler/rest"
 	notificationresthandler "samase/notification/handler/rest"
 	userresthandler "samase/user/handler/rest"
+	userservice "samase/user/service"
 	useremailresthandler "samase/useremail/handler/rest"
 	userpasswordresthandler "samase/userpassword/handler/rest"
 	uservoucherjunctionresthandler "samase/uservoucherjunction/handler/rest"
-
-	"github.com/gomodule/redigo/redis"
+	voucherresthandler "samase/voucher/handler/rest"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gomodule/redigo/redis"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
@@ -53,7 +54,28 @@ func main() {
 
 	// json.NewDecoder(configFile).Decode(&config)
 
-	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samaseapp")+"?parseTime=true")
+	// opt := option.WithCredentialsFile("/home/afif0808/Downloads/samase-firebase-adminsdk-bt6ys-b8af576636.json")
+	// app, err := firebase.NewApp(context.Background(), nil, opt)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// msging, err := app.Messaging(context.Background())
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// msg := messaging.Message{
+	// 	Topic: "topic",
+	// 	Notification: &messaging.Notification{
+	// 		Title: "Another Notification",
+	// 		Body:  "Another Body",
+	// 	},
+	// }
+	// _, err = msging.Send(context.Background(), &msg)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samase")+"?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,11 +110,20 @@ func main() {
 	uservoucherjunctionresthandler.InjectUserVoucherJunctionRESTHandler(conn, ee)
 	useremailresthandler.InjectUserEmailRESTHandler(conn, ee)
 	userpasswordresthandler.InjectUserPasswordRESTHandler(conn, ee)
-	ee.Static("/assets", "/root/go/src/samase/assets")
+	voucherresthandler.InjectVoucherRESTHandler(conn, ee)
+	ee.Static("/assets", "/media/afif0808/data/go/src/samase/assets")
+	ee.Static("/vouchers/images", "/media/afif0808/data/go/src/samase/assets/vouchers")
+	// fs := http.FileServer(http.Dir("/media/afif0808/data/go/src/samase/assets"))
+	// ee.GET("/assets/*", echo.WrapHandler(http.StripPrefix("/assets/", fs)))
+
 	ee.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete},
 	}))
+
+	// ee.GET("/ws", hello)
+
+	go userservice.WebsocketStream()
 
 	ee.Start(":777")
 }

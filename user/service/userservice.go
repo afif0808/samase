@@ -16,6 +16,7 @@ import (
 	userpasswordservice "samase/userpassword/service"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -294,9 +295,23 @@ func RecoverUserPassword(
 		}
 		log.Println(passwordHash)
 		uspa := userpassword.UserPassword{
+
 			UserID: id,
 			Hash:   passwordHash,
 		}
 		return updateUsserPassword(ctx, uspa)
+	}
+}
+
+func RegisterUserWebSocket() RegisterUserWebSocketFunc {
+	return func(conn *websocket.Conn) error {
+		register <- conn
+		return nil
+	}
+}
+func UnregisterUserWebSocket() UnregisterUserWebSocketFunc {
+	return func(conn *websocket.Conn) error {
+		unregister <- conn
+		return nil
 	}
 }
