@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fifentory/options"
 	"fmt"
+	"log"
 	"samase/jsonwebtoken"
 	jsonwebtokenrepo "samase/jsonwebtoken/repository"
 	"samase/user"
@@ -36,11 +37,13 @@ func GoogleVerifyIDToken(audience string, credentialsFile string) GoogleVerifyID
 	return func(ctx context.Context, IDToken string) (*idtoken.Payload, error) {
 		validator, err := idtoken.NewValidator(ctx, idtoken.WithCredentialsFile(credentialsFile))
 		if err != nil {
+			log.Println(err)
 			return nil, err
 		}
 		pl, err := validator.Validate(ctx, IDToken, audience)
 
 		if err != nil {
+			log.Println(err)
 			return nil, err
 		}
 		return pl, nil
