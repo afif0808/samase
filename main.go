@@ -54,15 +54,6 @@ func main() {
 
 	// json.NewDecoder(configFile).Decode(&config)
 
-	// opt := option.WithCredentialsFile("/home/afif0808/Downloads/samase-firebase-adminsdk-bt6ys-b8af576636.json")
-	// app, err := firebase.NewApp(context.Background(), nil, opt)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// msging, err := app.Messaging(context.Background())
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
 	// msg := messaging.Message{
 	// 	Topic: "topic",
 	// 	Notification: &messaging.Notification{
@@ -75,7 +66,7 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 
-	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samase")+"?parseTime=true")
+	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samaseapp")+"?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -111,8 +102,8 @@ func main() {
 	useremailresthandler.InjectUserEmailRESTHandler(conn, ee)
 	userpasswordresthandler.InjectUserPasswordRESTHandler(conn, ee)
 	voucherresthandler.InjectVoucherRESTHandler(conn, ee)
-	ee.Static("/assets", "/media/afif0808/data/go/src/samase/assets")
-	ee.Static("/vouchers/images", "/media/afif0808/data/go/src/samase/assets/vouchers")
+	ee.Static("/assets", "/root/go/src/samase/assets")
+	ee.Static("/vouchers/images", "/root/go/src/samase/assets/vouchers")
 	// fs := http.FileServer(http.Dir("/media/afif0808/data/go/src/samase/assets"))
 	// ee.GET("/assets/*", echo.WrapHandler(http.StripPrefix("/assets/", fs)))
 
