@@ -116,5 +116,5 @@ func main() {
 
 	go userservice.WebsocketStream()
 
-	ee.Start(":777")
+	ee.Start(":767")
 }
