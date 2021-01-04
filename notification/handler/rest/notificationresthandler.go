@@ -21,7 +21,7 @@ func InjectNotificationRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	getNotificationsByUserID := notificationservice.GetNotificationsByUserID(notificationsqlrepo.GetNotifications(conn))
 	ee.GET("/users/:id/notifications", GetNotificationsByUserID(getNotificationsByUserID))
 
-	opt := option.WithCredentialsFile("/home/afif0808/Downloads/samase-firebase-adminsdk-bt6ys-b8af576636.json")
+	opt := option.WithCredentialsFile("/root/go/src/samase/samase-firebase-adminsdk-bt6ys-b8af576636.json")
 	app, err := firebase.NewApp(context.Background(), nil, opt)
 	if err != nil {
 		log.Fatal(err)
