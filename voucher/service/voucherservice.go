@@ -2,6 +2,7 @@ package voucherservice
 
 import (
 	"context"
+	"fifentory/options"
 	"mime/multipart"
 	"samase/voucher"
 	voucherrepo "samase/voucher/repository"
@@ -35,5 +36,19 @@ func CreateVoucher(
 			return vo, err
 		}
 		return vo, nil
+	}
+}
+
+func DeleteVoucherByID(deleteVoucher voucherrepo.DeleteVouchersFunc) DeleteVoucherByIDFunc {
+	return func(ctx context.Context, id int64) error {
+		fts := []options.Filter{
+			options.Filter{
+				By:       "id",
+				Operator: "=",
+				Value:    id,
+			},
+		}
+		err := deleteVoucher(ctx, fts)
+		return err
 	}
 }

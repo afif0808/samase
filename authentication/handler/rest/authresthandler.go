@@ -52,7 +52,7 @@ func InjectAuthenticationRESTHandler(conn *sql.DB, ee *echo.Echo, redisConn redi
 		),
 	)
 	audience := "237241376283-0h2i2j36jmpagp6pc90rkkn8jd5cpt4u.apps.googleusercontent.com"
-	credentialFile := "/root/go/src/samase/samase-serviceaccount.json"
+	credentialFile := "/root/go/src/samase/samase-serviceaccount2.json"
 	verifyIDToken := authenticationservice.GoogleVerifyIDToken(audience, credentialFile)
 
 	createUser := usersqlrepo.CreateUser(conn)
@@ -194,12 +194,12 @@ func GoogleLogin(
 		}
 		err := ectx.Bind(&post)
 		if err != nil {
-			log.Println("Ini",err)
+			log.Println("Ini", err)
 			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
 		payload, err := verifyIDToken(ctx, post.IDToken)
 		if err != nil {
-			log.Println("Itu",err)
+			log.Println("Itu", err)
 			return ectx.JSON(http.StatusUnauthorized, nil)
 		}
 		email := fmt.Sprint(payload.Claims["email"])

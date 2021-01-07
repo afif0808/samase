@@ -10,10 +10,11 @@ import (
 )
 
 const (
-	voucherTable       = "voucher"
-	fields             = "id,name,image,description"
-	createVoucherQuery = "INSERT " + voucherTable + " SET  voucher.name = ? , voucher.image = ? "
-	getVouchersQuery   = "SELECT " + fields + " FROM " + voucherTable
+	voucherTable        = "voucher"
+	fields              = "id,name,image,description"
+	createVoucherQuery  = "INSERT " + voucherTable + " SET  voucher.name = ? , voucher.image = ? "
+	getVouchersQuery    = "SELECT " + fields + " FROM " + voucherTable
+	deleteVouchersQuery = "DELETE FROM " + voucherTable + " "
 )
 
 func CreateVoucher(conn *sql.DB) voucherrepo.CreateVoucherFunc {
@@ -52,5 +53,17 @@ func GetVouchers(conn *sql.DB) voucherrepo.GetVouchersFunc {
 			vos = append(vos, vo)
 		}
 		return vos, nil
+	}
+}
+
+func DeleteVouchers(conn *sql.DB) voucherrepo.DeleteVouchersFunc {
+	return func(ctx context.Context, fts []options.Filter) error {
+		filtersQuery, filtersArgs := options.ParseFiltersToSQLQuery(fts)
+		query := deleteVouchersQuery + " " + filtersQuery
+		_, err := conn.QueryContext(ctx, query, filtersArgs...)
+		if err != nil {
+			log.Println(err)
+		}
+		return nil
 	}
 }

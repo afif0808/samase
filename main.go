@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	authenticationresthandler "samase/authentication/handler/rest"
+	eventresthandler "samase/event/handler/rest"
+	imagemanagerresthandler "samase/imagemanager/handler/rest"
 	notificationresthandler "samase/notification/handler/rest"
 	userresthandler "samase/user/handler/rest"
 	userservice "samase/user/service"
@@ -102,8 +104,11 @@ func main() {
 	useremailresthandler.InjectUserEmailRESTHandler(conn, ee)
 	userpasswordresthandler.InjectUserPasswordRESTHandler(conn, ee)
 	voucherresthandler.InjectVoucherRESTHandler(conn, ee)
+	eventresthandler.InjectEventRESTHandler(conn, ee)
+	imagemanagerresthandler.InjectImageManagerRESTHandler(ee)
 	ee.Static("/assets", "/root/go/src/samase/assets")
 	ee.Static("/vouchers/images", "/root/go/src/samase/assets/vouchers")
+	ee.Static("/events/images", "/root/go/src/samase/assets/events")
 	// fs := http.FileServer(http.Dir("/media/afif0808/data/go/src/samase/assets"))
 	// ee.GET("/assets/*", echo.WrapHandler(http.StripPrefix("/assets/", fs)))
 
