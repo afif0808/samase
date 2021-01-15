@@ -3,7 +3,6 @@ package voucherservice
 import (
 	"context"
 	"fifentory/options"
-	"mime/multipart"
 	"samase/voucher"
 	voucherrepo "samase/voucher/repository"
 )
@@ -11,8 +10,17 @@ import (
 func GetVouchers(
 	getVouchers voucherrepo.GetVouchersFunc,
 ) GetVouchersFunc {
-	return func(ctx context.Context) ([]voucher.Voucher, error) {
-		vos, err := getVouchers(ctx, nil)
+	return func(ctx context.Context, keyword string) ([]voucher.Voucher, error) {
+		opts := options.Options{
+			Filters: []options.Filter{
+				options.Filter{
+					Operator: "LIKE",
+					Value:    keyword,
+					By:       "name",
+				},
+			},
+		}
+		vos, err := getVouchers(ctx, &opts)
 		if err != nil {
 			return nil, err
 		}
@@ -22,16 +30,9 @@ func GetVouchers(
 
 func CreateVoucher(
 	createVoucher voucherrepo.CreateVoucherFunc,
-	saveImg SaveVoucherImageFunc,
-	imgDest, imgLink string,
 ) CreateVoucherFunc {
-	return func(ctx context.Context, vo voucher.Voucher, img multipart.File) (voucher.Voucher, error) {
-		err := saveImg(imgDest, img)
-		if err != nil {
-			return vo, err
-		}
-		vo.Image = imgLink + ""
-		vo, err = createVoucher(ctx, vo)
+	return func(ctx context.Context, vo voucher.Voucher) (voucher.Voucher, error) {
+		vo, err := createVoucher(ctx, vo)
 		if err != nil {
 			return vo, err
 		}
@@ -50,5 +51,17 @@ func DeleteVoucherByID(deleteVoucher voucherrepo.DeleteVouchersFunc) DeleteVouch
 		}
 		err := deleteVoucher(ctx, fts)
 		return err
+	}
+}
+
+func UpdateVoucherByID(updateVouchers voucherrepo.UpdateVouchersFunc) UpdateVoucherByIDFunc {
+	return func(ctx context.Context, vo voucher.Voucher) error {
+		fts := []options.Filter{options.Filter{
+			Operator: "=",
+			By:       "id",
+			Value:    vo.ID,
+		}}
+
+		return updateVouchers(ctx, vo, fts)
 	}
 }

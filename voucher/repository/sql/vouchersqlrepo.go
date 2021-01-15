@@ -7,19 +7,21 @@ import (
 	"log"
 	"samase/voucher"
 	voucherrepo "samase/voucher/repository"
+
+	"gorm.io/gorm"
 )
 
 const (
 	voucherTable        = "voucher"
 	fields              = "id,name,image,description"
-	createVoucherQuery  = "INSERT " + voucherTable + " SET  voucher.name = ? , voucher.image = ? "
+	createVoucherQuery  = "INSERT " + voucherTable + " SET  voucher.name = ? , voucher.image = ? , voucher.description = ? "
 	getVouchersQuery    = "SELECT " + fields + " FROM " + voucherTable
 	deleteVouchersQuery = "DELETE FROM " + voucherTable + " "
 )
 
 func CreateVoucher(conn *sql.DB) voucherrepo.CreateVoucherFunc {
 	return func(ctx context.Context, vo voucher.Voucher) (voucher.Voucher, error) {
-		res, err := conn.ExecContext(ctx, createVoucherQuery, vo.Name, vo.Image)
+		res, err := conn.ExecContext(ctx, createVoucherQuery, vo.Name, vo.Image, vo.Description)
 		if err != nil {
 			log.Println(err)
 			return vo, err
@@ -65,5 +67,20 @@ func DeleteVouchers(conn *sql.DB) voucherrepo.DeleteVouchersFunc {
 			log.Println(err)
 		}
 		return nil
+	}
+}
+
+func UpdateVouchers(db *gorm.DB) voucherrepo.UpdateVouchersFunc {
+	return func(ctx context.Context, vo voucher.Voucher, fts []options.Filter) error {
+		filtersQuery, filtersArgs := options.GORMParseFiltersToSQLQuery(fts)
+		tx := db.WithContext(ctx).
+			Table("voucher").
+			Where(filtersQuery, filtersArgs[0]).
+			Updates(vo)
+		err := tx.Error
+		if err != nil {
+			log.Println(err)
+		}
+		return err
 	}
 }

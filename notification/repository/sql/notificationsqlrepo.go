@@ -11,15 +11,15 @@ import (
 
 const (
 	notificationTable           = "notification"
-	notificationFields          = notificationTable + ".id," + notificationTable + ".name," + notificationTable + ".message," + notificationTable + ".date , " + notificationTable + ".is_read"
-	createNotificationQuery     = "INSERT " + notificationTable + " SET notification.name = ? , notification.message = ? , notification.user_id = ?"
+	notificationFields          = notificationTable + ".id," + notificationTable + ".name," + notificationTable + ".message," + notificationTable + ".date , " + notificationTable + ".is_read," + notificationTable + ".image"
+	createNotificationQuery     = "INSERT " + notificationTable + " SET notification.name = ? , notification.message = ? , notification.user_id = ? , notification.image = ?"
 	markNotificationAsReadQuery = "UPDATE " + notificationTable + " SET is_read = 1 "
 	getNotificationsQuery       = "SELECT " + notificationFields + " FROM " + notificationTable
 )
 
 func CreateNotification(conn *sql.DB) notificationrepo.CreateNotificationFunc {
 	return func(ctx context.Context, notf notification.Notification) (notification.Notification, error) {
-		res, err := conn.ExecContext(ctx, createNotificationQuery, notf.Name, notf.Message, notf.UserID)
+		res, err := conn.ExecContext(ctx, createNotificationQuery, notf.Name, notf.Message, notf.UserID, notf.Image)
 		if err != nil {
 			log.Println(err)
 			return notf, err
@@ -37,7 +37,7 @@ func CreateNotification(conn *sql.DB) notificationrepo.CreateNotificationFunc {
 func GetNotifications(conn *sql.DB) notificationrepo.GetNotificationsFunc {
 	return func(ctx context.Context, opts *options.Options) ([]notification.Notification, error) {
 		optionsQuery, optionsArgs := options.ParseOptionsToSQLQuery(opts)
-		query := getNotificationsQuery + " " + optionsQuery
+		query := getNotificationsQuery + " " + optionsQuery + " ORDER BY id DESC"
 		rows, err := conn.QueryContext(ctx, query, optionsArgs...)
 		if err != nil {
 			log.Println(err)
@@ -47,7 +47,7 @@ func GetNotifications(conn *sql.DB) notificationrepo.GetNotificationsFunc {
 		notfs := []notification.Notification{}
 		for rows.Next() {
 			notf := notification.Notification{}
-			err := rows.Scan(&notf.ID, &notf.Name, &notf.Message, &notf.Date, &notf.IsRead)
+			err := rows.Scan(&notf.ID, &notf.Name, &notf.Message, &notf.Date, &notf.IsRead, &notf.Image)
 			if err != nil {
 				log.Println(err)
 				return nil, err

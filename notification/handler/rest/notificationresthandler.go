@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"samase/notification"
 	notificationsqlrepo "samase/notification/repository/sql"
 	notificationservice "samase/notification/service"
 	usersqlrepo "samase/user/repository/sql"
@@ -21,8 +22,9 @@ func InjectNotificationRESTHandler(conn *sql.DB, ee *echo.Echo) {
 	getNotificationsByUserID := notificationservice.GetNotificationsByUserID(notificationsqlrepo.GetNotifications(conn))
 	ee.GET("/users/:id/notifications", GetNotificationsByUserID(getNotificationsByUserID))
 
-	opt := option.WithCredentialsFile("/root/go/src/samase/samase-firebase-adminsdk-bt6ys-b8af576636.json")
+	// opt := option.WithCredentialsFile("/root/go/src/samase/samase-firebase-adminsdk-bt6ys-b8af576636.json")
 	// opt := option.WithCredentialsFile("/media/afif0808/data/go/src/samase/samase-firebase-adminsdk-bt6ys-b8af576636.json")
+	opt := option.WithCredentialsFile("C:/Users/bayur/go/src/samase/samase-firebase-adminsdk-bt6ys-b8af576636.json")
 
 	app, err := firebase.NewApp(context.Background(), nil, opt)
 	if err != nil {
@@ -33,7 +35,6 @@ func InjectNotificationRESTHandler(conn *sql.DB, ee *echo.Echo) {
 		log.Fatal(err)
 
 	}
-
 	ussf := usersqlrepo.NewUserSQLFetcher(conn)
 	createNotification := notificationsqlrepo.CreateNotification(conn)
 	sendFirebaseNotification := notificationservice.SendFirebaseNotification(msgcl)
@@ -74,14 +75,14 @@ func CreateNotificationForAllUsers(
 	return func(ectx echo.Context) error {
 		ctx := ectx.Request().Context()
 		var post struct {
-			Title   string `json:"title"`
-			Message string `json:"message"`
+			Notification notification.Notification `json:"notification"`
 		}
 		err := ectx.Bind(&post)
+		log.Println(err, post)
 		if err != nil {
 			return ectx.JSON(http.StatusBadRequest, nil)
 		}
-		err = createNotificationForAllUsers(ctx, post.Title, post.Message)
+		err = createNotificationForAllUsers(ctx, post.Notification)
 		if err != nil {
 			return ectx.JSON(http.StatusInternalServerError, nil)
 		}

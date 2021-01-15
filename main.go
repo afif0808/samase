@@ -21,6 +21,8 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 func redisPool() *redis.Pool {
@@ -68,7 +70,7 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 
-	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samaseapp")+"?parseTime=true")
+	conn, err := sql.Open("mysql", "root:@tcp(localhost:3306)/"+fmt.Sprint("samase")+"?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -97,18 +99,24 @@ func main() {
 	rp := redisPool()
 	rc, _ := rp.Dial()
 
+	dsn := "root:@tcp(localhost:3306)/samase?charset=utf8mb4&parseTime=True&loc=Local"
+	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
 	userresthandler.InjectUserRESTHandler(conn, ee)
 	notificationresthandler.InjectNotificationRESTHandler(conn, ee)
 	authenticationresthandler.InjectAuthenticationRESTHandler(conn, ee, rc)
 	uservoucherjunctionresthandler.InjectUserVoucherJunctionRESTHandler(conn, ee)
 	useremailresthandler.InjectUserEmailRESTHandler(conn, ee)
 	userpasswordresthandler.InjectUserPasswordRESTHandler(conn, ee)
-	voucherresthandler.InjectVoucherRESTHandler(conn, ee)
-	eventresthandler.InjectEventRESTHandler(conn, ee)
+	voucherresthandler.InjectVoucherRESTHandler(conn, gormDB, ee)
+	eventresthandler.InjectEventRESTHandler(conn, gormDB, ee)
 	imagemanagerresthandler.InjectImageManagerRESTHandler(ee)
-	ee.Static("/assets", "/root/go/src/samase/assets")
+	// ee.Static("/assets", "/root/go/src/samase/assets")
 	ee.Static("/vouchers/images", "/root/go/src/samase/assets/vouchers")
 	ee.Static("/events/images", "/root/go/src/samase/assets/events")
+	ee.Static("/images", "C:/Users/bayur/go/src/samase/assets/images")
 	// fs := http.FileServer(http.Dir("/media/afif0808/data/go/src/samase/assets"))
 	// ee.GET("/assets/*", echo.WrapHandler(http.StripPrefix("/assets/", fs)))
 

@@ -39,6 +39,7 @@ func (vosf *VoucherSQLFetcher) GetVouchers(ctx context.Context, opts *options.Op
 		log.Println(err)
 		return nil, err
 	}
+
 	defer rows.Close()
 	vos := []voucher.Voucher{}
 	for rows.Next() {

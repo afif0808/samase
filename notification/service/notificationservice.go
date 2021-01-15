@@ -35,14 +35,10 @@ func CreateNotificationForAllUsers(
 	sendFirebaseNotification SendFirebaseNotificationFunc,
 	getUserWSs userservice.GetUserWSsFunc,
 ) CreateNotificationForAllUsersFunc {
-	return func(ctx context.Context, title, message string) error {
+	return func(ctx context.Context, notf notification.Notification) error {
 		uss, err := usf.GetUsers(ctx, nil)
 		if err != nil {
 			return err
-		}
-		notf := notification.Notification{
-			Name:    title,
-			Message: message,
 		}
 		for _, us := range uss {
 			notf.UserID = us.ID
@@ -53,8 +49,9 @@ func CreateNotificationForAllUsers(
 		}
 		msg := messaging.Message{
 			Notification: &messaging.Notification{
-				Title: title,
-				Body:  message,
+				Title:    notf.Name,
+				Body:     notf.Message,
+				ImageURL: notf.Image,
 			},
 			Topic: "topic",
 		}

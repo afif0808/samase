@@ -7,6 +7,8 @@ import (
 	"log"
 	"samase/event"
 	eventrepo "samase/event/repository"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -37,5 +39,41 @@ func GetEvents(conn *sql.DB) eventrepo.GetEventsFunc {
 			evs = append(evs, ev)
 		}
 		return evs, nil
+	}
+}
+func CreateEvent(db *gorm.DB) eventrepo.CreateEventFunc {
+	return func(ctx context.Context, ev event.Event) (event.Event, error) {
+		res := db.Table("event").Create(&ev)
+		err := res.Error
+		if err != nil {
+			log.Println(err)
+		}
+		return ev, err
+	}
+}
+
+func UpdateEvents(db *gorm.DB) eventrepo.UpdateEventsFunc {
+	return func(ctx context.Context, ev event.Event, fts []options.Filter) error {
+		filtersQuery, filtersArgs := options.GORMParseFiltersToSQLQuery(fts)
+		res := db.Table("event").
+			Where(filtersQuery, filtersArgs...).
+			Updates(ev)
+		err := res.Error
+		if err != nil {
+			log.Println(err)
+		}
+		return err
+	}
+}
+
+func DeleteEvents(db *gorm.DB) eventrepo.DeleteEventsFunc {
+	return func(ctx context.Context, fts []options.Filter) error {
+		filtersQuery, filtersArgs := options.GORMParseFiltersToSQLQuery(fts)
+		res := db.Table("event").Where(filtersQuery, filtersArgs...).Delete(&event.Event{})
+		err := res.Error
+		if err != nil {
+			log.Println(err)
+		}
+		return err
 	}
 }
